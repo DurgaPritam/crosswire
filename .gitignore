@@ -1,0 +1,15 @@
+.env
+workspace/
+**/.disclosures/
+**/.credentials.json
+**/.switch/
+node_modules/
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+dist/
+*.db
+rehearsals/*.md
+!rehearsals/README.md
+.DS_Store
