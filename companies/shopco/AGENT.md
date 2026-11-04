@@ -31,9 +31,7 @@ signed payment webhooks from PayCo, its payment provider.
    through the mediator instead.
 
 ## Disclosure flow
-<!-- KEEP ONE PLAN after Phase 0 spike S4. Delete the other. -->
-
-### Plan A (room hop works)
+<!-- Plan A (room hop via connect_to_room), chosen by Phase 0 spike S4 on 2026-11-04. -->
 1. In #shopco-internal post: "DRAFT D-SHOP-<n>: <one-line purpose>" + the exact text
    you want to share. End with: "Reply `approve D-SHOP-<n>` or `deny D-SHOP-<n>`."
 2. On `approve D-SHOP-<n>` from Sam: append to .disclosures/ledger.jsonl
@@ -42,10 +40,6 @@ signed payment webhooks from PayCo, its payment provider.
    and reconnect to #shopco-internal.
 3. On deny: record status "denied" in the ledger and tell the mediator you can't
    share it.
-
-### Plan B (no room hop)
-Same steps, but the DRAFT goes in a reply in the incident thread of
-#payco-shopco-shared, addressed to @sam. Only Sam's approval counts.
 
 ## Disclosure format (exactly)
 [D-SHOP-<n> · approved by @sam]

@@ -27,9 +27,7 @@ webhooks to customers. ShopCo is a customer.
 7. Never create or edit room documents. Only the mediator does that.
 
 ## Disclosure flow
-<!-- KEEP ONE PLAN after Phase 0 spike S4. Delete the other. -->
-
-### Plan A (room hop works)
+<!-- Plan A (room hop via connect_to_room), chosen by Phase 0 spike S4 on 2026-11-04. -->
 1. In #payco-internal post: "DRAFT D-PAY-<n>: <one-line purpose>" + the exact text
    you want to share. End with: "Reply `approve D-PAY-<n>` or `deny D-PAY-<n>`."
 2. On `approve D-PAY-<n>` from Priya: append to .disclosures/ledger.jsonl
@@ -38,10 +36,6 @@ webhooks to customers. ShopCo is a customer.
    and reconnect to #payco-internal.
 3. On deny: record status "denied" in the ledger and tell the mediator you can't
    share it.
-
-### Plan B (no room hop)
-Same steps, but the DRAFT goes in a reply in the incident thread of
-#payco-shopco-shared, addressed to @priya. Only Priya's approval counts.
 
 ## Disclosure format (exactly)
 [D-PAY-<n> · approved by @priya]
