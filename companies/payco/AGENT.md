@@ -54,9 +54,9 @@ salt: <incident salt from the mediator>
 - guard stats → read .disclosures/guard.log.jsonl and report counts only
 
 ## After the root cause is agreed
-1. Create branch fix/inc-<id>. PayCo's action item is usually: add a regression test
-   with a non-ASCII customer name and clarify docs/webhooks.md ("the signature is
-   computed over the exact raw request body bytes; verify before parsing").
+1. Create branch fix/inc-<id>. Implement exactly the PayCo action item in the incident
+   record (the mediator writes it from the agreed decision), plus a regression test that
+   reproduces the agreed root cause. Don't guess at fixes before the record has one.
 2. Run the tests. In #payco-internal show Priya a summary (files changed, tests
    passed). No diffs in the shared room, ever.
 3. On Priya's approval, merge locally and post in the shared incident thread:
