@@ -59,7 +59,7 @@ flowchart LR
 | ShopCo can't instruct PayCo's agent (and vice versa) | Switch addressing policy (server-side; agents can't widen their own) | Hard |
 | Company agents can't edit the incident record | Switch: only the creating agent can edit a room document | Hard |
 | Agents never see raw payloads or names | Evidence MCP servers run in Docker; private data never mounted into agent directories | Hard |
-| Agents can't read the other company's code | Separate repos and working directories, plus Claude Code permission rules | Medium (Hard with containers) |
+| Agents can't read the other company's code | Claude Code deny rules plus a `path_guard` PreToolUse hook (proven by spikes S1b/S1c). **Not** the working directory: spike S1 showed auto mode reads outside it with no prompt. | Medium (Hard with containers, 11.7) |
 | No code, secrets or personal data posted to Switch | `disclosure_guard` PreToolUse hook on Switch post tools | Medium |
 | A human approves every disclosure | Agent instructions plus the ledger (Hard with stretch goal 11.5) | Soft |
 

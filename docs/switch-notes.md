@@ -9,7 +9,7 @@ These were found by reading `sandbox-quantum/switch` (docs/official, core, conso
 - **`post_message(body, thread_id=None)`** posts only to the session's connected room (no `room_id` parameter). `connect_to_room(room_id)` switches the session's active room. `send_targeted_message` supports `target_names` and `target_roles`.
 - **Roles:** shared or exclusive (an exclusive role is a lease released a few seconds after the session stops). One role per agent at a time, across all rooms. `!roles` lists them.
 - **Context stops at the room.** Two sessions of the same agent share nothing. Anything that must travel goes in a document or the agent's own working directory.
-- **Working directory** is the strongest control: it decides what the agent can read. Keep bypass permissions off.
+- **Working directory** decides where the agent starts, but it is **not** a boundary: in spike S1, Console's default auto mode let the agent read a sibling folder with no prompt. Enforce isolation with deny rules and the `path_guard` hook. Keep bypass permissions off.
 - **Console runs Claude Code through the Agent SDK** with project and user settings loaded, and registers Switch operations as MCP tools (names like `mcp__switch__post_message`). Hooks in the project's `.claude/settings.json` should therefore apply. **VERIFY in spike S3.**
 - **Templates:** room YAML with typed `params` (`string`, `number`, `boolean`, `enum`, `agent`, `bridge`, `room`, `user`), builtins `{$creator}`, `{$date}`, `{$timestamp}`, and a top-level `kickoff` message. See `../switch/examples/room-templates/red-blue-workroom.template.yaml`.
 - **Tasks are not usable:** the task operations exist, but the docs say "present but not ready for use".
@@ -17,7 +17,7 @@ These were found by reading `sandbox-quantum/switch` (docs/official, core, conso
 ## Operation catalog (agent side)
 Rooms: list_rooms, get_room_detail, connect_to_room, create_room, update_room, list_participants, invite_agent_to_room, add_users_to_room · Messaging: post_message, send_targeted_message, read_context · Resources: list_references, create_reference, attach_reference_to_room, load_internal_documents, create_room_document, update_room_document, delete_room_document · Roles: list_roles, define_role, assume_role, release_role · Links/groups: list_linked_rooms, link_rooms, unlink_rooms, create_room_group · Templates: create_room_from_yaml, get_template_guide, list_templates, run_template, save_template
 
-## Gotchas
+## Gotchas (from Switch's docs and from our own setup)
 
 | Gotcha | What to do |
 |---|---|
@@ -31,4 +31,10 @@ Rooms: list_rooms, get_room_detail, connect_to_room, create_room, update_room, l
 | Bridge base URL ≠ Gateway URL | Probe `GET /health` on the bridge for the Notary |
 | Mattermost renders Markdown tables, Slack doesn't | Tables are fine for the demo; note it if you connect Slack |
 | Bypass permissions disables every check | Keep it off for all agents |
+| **Auto mode (on by default) approved an out-of-directory read with no prompt** (spike S1) | Enforce isolation with deny rules plus the `path_guard` hook; prove it with S1b/S1c |
+| Mattermost image has no arm64 build: `no matching manifest for linux/arm64` | `docker pull --platform linux/amd64 mattermost/mattermost-team-edition:11.9.0`, Rosetta on in Docker Desktop |
+| `docker-credential-desktop: executable file not found in $PATH` when Console pulls | Pre-pull the images in Terminal; if it persists, remove `"credsStore"` from `~/.docker/config.json` (back it up first) |
+| The Mattermost on/off switch isn't in Settings | It's in **Admin → Status** (Console v0.40.1) |
+| Mattermost's port can change after a server restart | Re-check **Home → Mattermost → ⋮ → Sign-in details…** and update `MM_URL` |
+| Env vars exported in one terminal don't reach Claude Code in the VS Code extension | Run scripts that need secrets yourself in that terminal, or start VS Code from it (`code .`) |
 

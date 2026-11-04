@@ -13,3 +13,10 @@ dist/
 rehearsals/*.md
 !rehearsals/README.md
 .DS_Store
+
+# spike hook audit log
+spikes/agent-a/hooks/block.log
+spikes/agent-a/hooks/path.log
+# project-local temp dirs (agents must not use the shared /tmp)
+.tmp/
+**/.tmp/
