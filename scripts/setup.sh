@@ -33,7 +33,7 @@ __pycache__/
 .switch/
 .claude/settings.json
 .claude/settings.local.json
-hooks/*.log
+hooks/
 .tmp/
 .venv/
 '
@@ -84,6 +84,26 @@ if [ ! -d "$WS/mediator" ]; then
   echo "created workspace/mediator"
 else
   echo "workspace/mediator exists, skipping"
+fi
+
+# Guards: one canonical copy in guards/, copied into every agent workspace on every run.
+install_guards() { # name, guards...
+  local name="$1"; shift
+  mkdir -p "$WS/$name/hooks"
+  for g in "$@"; do cp "$ROOT/guards/$g" "$WS/$name/hooks/$g"; done
+}
+install_guards payco path_guard.py disclosure_guard.py
+install_guards shopco path_guard.py disclosure_guard.py
+install_guards mediator path_guard.py
+
+# Test environments for the agents' own test commands (gitignored inside each workspace).
+if [ -d "$WS/payco/api" ] && [ ! -x "$WS/payco/.venv/bin/python" ]; then
+  py="$(command -v python3.12 || command -v python3)"
+  "$py" -m venv "$WS/payco/.venv" && "$WS/payco/.venv/bin/pip" install -q -r "$WS/payco/api/requirements.txt" pytest \
+    && echo "  created workspace/payco/.venv (PayCo's test deps)"
+fi
+if [ -f "$WS/shopco/app/package-lock.json" ] && [ ! -d "$WS/shopco/app/node_modules" ] && command -v npm >/dev/null; then
+  (cd "$WS/shopco/app" && npm ci --silent >/dev/null 2>&1) && echo "  installed workspace/shopco/app/node_modules (ShopCo's test deps)"
 fi
 
 render_settings payco shopco

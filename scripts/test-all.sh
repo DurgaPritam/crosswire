@@ -27,7 +27,7 @@ suite_if "payco api"        companies/payco/api/tests         $PY -m pytest -q c
 suite_if "shopco app"       companies/shopco/app/test         bash -c 'cd companies/shopco/app && npm test --silent'
 suite_if "evidence servers" evidence/tests                    $PY -m pytest -q evidence/tests
 suite_if "notary"           neutral/notary/tests              $PY -m pytest -q neutral/notary/tests
-suite_if "company hooks"    companies/tests                   $PY -m pytest -q companies/tests
+suite_if "guards (path, disclosure)" guards/tests                $PY -m pytest -q guards/tests
 
 echo
 if [ ${#failed[@]} -gt 0 ]; then echo "FAILED suites: ${failed[*]}"; exit 1; fi

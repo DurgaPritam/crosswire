@@ -9,7 +9,7 @@
 | `AGENT.md` | kit | Runtime playbook; becomes `CLAUDE.md` and `AGENTS.md` in the workspace |
 | `.mcp.json` | Phase 6 | Connects shopco-evidence (http://localhost:7102/mcp) |
 | `.claude/settings.template.json` | Phase 6 | Permissions and hooks; `just setup` renders it to `.claude/settings.json` per machine (never committed) |
-| `hooks/disclosure_guard.py` | Phase 6 | Blocks code, secrets, names, unapproved disclosures |
+| `hooks/disclosure_guard.py`, `hooks/path_guard.py` | Phase 6 | Installed by `just setup` from the canonical `guards/` (never edit them in the workspace) |
 
 Key spec:
 - `POST /webhooks/payco` uses `express.json()`, enqueues `{event_id, payload: req.body, signature_header}`, then waits up to `VERDICT_WAIT_MS` (3 s) for the worker's verdict: **401** on a mismatch, otherwise 202. Raw bytes are **not** kept (queue-first design). The short wait is what lets PayCo see failures as 401s (its half of the clue); verification itself stays in the worker.

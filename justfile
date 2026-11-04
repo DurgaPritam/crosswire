@@ -52,7 +52,7 @@ notary-register *args:
 
 # Disclosure guard statistics per company
 guard-stats company="payco":
-    @echo "not built yet: Phase 6"
+    ./scripts/guard-stats.sh {{company}}
 
 # Stop the Claude Code session in one agent dir (Console starts a fresh one on next mention)
 restart-agent dir:

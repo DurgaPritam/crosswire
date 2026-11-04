@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "payco-evidence": {
+      "type": "http",
+      "url": "http://localhost:7101/mcp"
+    }
+  }
+}

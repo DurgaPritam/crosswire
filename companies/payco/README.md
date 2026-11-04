@@ -9,7 +9,7 @@
 | `AGENT.md` | kit | Runtime playbook; becomes `CLAUDE.md` and `AGENTS.md` in the workspace |
 | `.mcp.json` | Phase 6 | Connects payco-evidence (http://localhost:7101/mcp) |
 | `.claude/settings.template.json` | Phase 6 | Permissions and hooks; `just setup` renders it to `.claude/settings.json` per machine (never committed) |
-| `hooks/disclosure_guard.py` | Phase 6 | Blocks code, secrets, names, unapproved disclosures |
+| `hooks/disclosure_guard.py`, `hooks/path_guard.py` | Phase 6 | Installed by `just setup` from the canonical `guards/` (never edit them in the workspace) |
 
 Key spec:
 - Body = `json.dumps(event, separators=(",", ":"))` with default `ensure_ascii`, so `é` is sent as `\u00e9`.
