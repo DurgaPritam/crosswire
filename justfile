@@ -47,6 +47,10 @@ notary:
 guard-stats company="payco":
     @echo "not built yet: Phase 6"
 
+# Stop the Claude Code session in one agent dir (Console starts a fresh one on next mention)
+restart-agent dir:
+    d="{{dir}}"; ./scripts/restart-agent.sh "${d#dir=}"
+
 # Health checklist for the whole system
 doctor:
     @echo "not built yet: Phase 10"

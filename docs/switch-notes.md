@@ -36,5 +36,11 @@ Rooms: list_rooms, get_room_detail, connect_to_room, create_room, update_room, l
 | `docker-credential-desktop: executable file not found in $PATH` when Console pulls | Pre-pull the images in Terminal; if it persists, remove `"credsStore"` from `~/.docker/config.json` (back it up first) |
 | The Mattermost on/off switch isn't in Settings | It's in **Admin → Status** (Console v0.40.1) |
 | Mattermost's port can change after a server restart | Re-check **Home → Mattermost → ⋮ → Sign-in details…** and update `MM_URL` |
-| Env vars exported in one terminal don't reach Claude Code in the VS Code extension | Run scripts that need secrets yourself in that terminal, or start VS Code from it (`code .`) |
+| Env vars exported in one terminal don't reach Claude Code in the VS Code extension | Keep the Mattermost login in the gitignored `.env` (mode 600); scripts load it |
+| Deny rules are checked **before** hooks for file tools | A deny-rule refusal leaves `path.log` empty; count it as a pass. path_guard is the boundary for Bash. |
+| On one machine, all agents run as one OS user | Deny process inspection in every agent; containers (11.7) for a hard fix |
+| A **refused** targeted message is still posted visibly in the room | The disclosure guard must check `send_targeted_message` regardless of addressing |
+| Console runs agents with `--permission-mode auto` on its own Claude Code (v2.1.299 at the time of writing) | Don't rely on settings that need a newer version |
+| Restarting an agent session = stopping its `claude` process | `scripts/restart-agent.sh <workspace-dir>`; Console starts a fresh session on the next mention |
+| "Only me" also refuses the owner's *other* agents (confirmed in S2) | Phase 7.3 can rely on it |
 
