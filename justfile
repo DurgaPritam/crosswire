@@ -42,9 +42,13 @@ verify-fixed:
 test:
     ./scripts/test-all.sh
 
-# Run the notary protocol agent
+# Run the notary protocol agent (register once first: just notary-register, after Phase 7 creates `host`)
 notary:
-    @echo "not built yet: Phase 5"
+    cd neutral/notary && ../../.venv/bin/python -m notary
+
+# One-time Notary registration (NOTARY_REGISTRATION_TOKEN = a registration key minted by `host`)
+notary-register *args:
+    cd neutral/notary && ../../.venv/bin/python -m notary.register {{args}}
 
 # Disclosure guard statistics per company
 guard-stats company="payco":

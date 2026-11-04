@@ -50,6 +50,15 @@ services:
     volumes: ["shopco-data:/data/shopco:ro"]
     depends_on: [shopco-app]
 
+  # The Notary talks to the Switch bridge on the host. Needs neutral/notary/.credentials.json (Phase 7 registers).
+  notary:
+    profiles: ["notary"]
+    build: {context: ., dockerfile: neutral/notary/Dockerfile}
+    environment:
+      SWITCH_BRIDGE_URL: ${NOTARY_BRIDGE_URL_FROM_DOCKER:-http://host.docker.internal:50675}
+    volumes: ["./neutral/notary:/run/notary"]
+    restart: unless-stopped
+
 volumes:
   payco-data:
   shopco-data:
