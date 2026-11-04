@@ -1,0 +1,40 @@
+# Crosswire services. Company services build from workspace/ (the agents' repos), so
+# fixes the agents make there take effect on `just up`. Run `just setup` first.
+# All ports bind to 127.0.0.1. Our images are native (arm64 on Apple silicon).
+name: crosswire
+
+# PAYCO_SRC / SHOPCO_SRC override the build sources (verify-fixed uses a patched temp copy).
+services:
+  payco-api:
+    build: ${PAYCO_SRC:-./workspace/payco}/api
+    environment:
+      WEBHOOK_SECRET: ${WEBHOOK_SECRET:?set WEBHOOK_SECRET in .env (just setup creates it)}
+      CUSTOMER_WEBHOOK_URL: http://shopco-app:3000/webhooks/payco
+    ports: ["127.0.0.1:${PAYCO_API_PORT:-7001}:8000"]
+    volumes: ["payco-data:/data/payco"]
+    depends_on: [shopco-app]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 5s
+      retries: 10
+
+  shopco-app:
+    build: ${SHOPCO_SRC:-./workspace/shopco}/app
+    command: ["node", "server.js"]
+    ports: ["127.0.0.1:${SHOPCO_APP_PORT:-7002}:3000"]
+    volumes: ["shopco-data:/data/shopco"]
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/health').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
+      interval: 5s
+      retries: 10
+
+  shopco-worker:
+    build: ${SHOPCO_SRC:-./workspace/shopco}/app
+    command: ["node", "worker.js"]
+    environment:
+      WEBHOOK_SECRET: ${WEBHOOK_SECRET:?set WEBHOOK_SECRET in .env}
+    volumes: ["shopco-data:/data/shopco"]
+
+volumes:
+  payco-data:
+  shopco-data:

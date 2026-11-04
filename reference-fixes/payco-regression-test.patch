@@ -1,0 +1,42 @@
+diff --git a/api/tests/test_api.py b/api/tests/test_api.py
+index dfac50a..9345a8e 100644
+--- a/api/tests/test_api.py
++++ b/api/tests/test_api.py
+@@ -70,3 +70,17 @@ def test_float_amount_rejected(tmp_path: Path) -> None:
+     settings.secret, settings.endpoint, settings.db_path, settings.timeout = "s", "http://x/", str(tmp_path / "d.db"), 5
+     client = TestClient(create_app(settings, httpx.MockTransport(lambda r: httpx.Response(202))))
+     assert client.post("/admin/send-event", json={"customer": CUSTOMER, "amount_cents": 5.5}).status_code == 422
++
++
++def test_regression_non_ascii_name_is_signed_over_escaped_bytes() -> None:
++    """A customer name with é must be signed over the exact bytes sent (\\u00e9, 6 bytes)."""
++    event = build_payment_succeeded("evt_0042", 4200, "EUR",
++                                    {"id": "cus_0042", "name": "Chlo\u00e9 Martin", "country": "FR"}, created=1)
++    body = serialize(event)
++    assert b"Chlo\\u00e9 Martin" in body and body.isascii()
++    header = sign(body, "s3cret", timestamp=1)
++    v1 = header.split("v1=")[1]
++    assert v1 == hmac.new(b"s3cret", b"1." + body, hashlib.sha256).hexdigest()
++    reserialized = json.dumps(json.loads(body), separators=(",", ":"), ensure_ascii=False).encode()
++    assert hmac.new(b"s3cret", b"1." + reserialized, hashlib.sha256).hexdigest() != v1, \
++        "re-serialized bytes differ, so receivers must verify the raw body"
+diff --git a/docs/webhooks.md b/docs/webhooks.md
+index 54deb36..174e6e3 100644
+--- a/docs/webhooks.md
++++ b/docs/webhooks.md
+@@ -37,10 +37,13 @@ PayCo-Signature: t=1762300800,v1=5257a869e7ecebeda32affa62cdca3fa51cad7e77a0e56f
+ - `t` is the Unix timestamp at which PayCo signed the request.
+ - `v1` is a hex-encoded HMAC-SHA256, keyed with your endpoint's signing secret.
+ 
+-The signature is computed over the JSON payload, prefixed with the timestamp and a dot:
++The signature is computed over the **exact raw request body bytes** as sent, prefixed with
++the timestamp and a dot. Verify before parsing: if you parse the JSON and serialize it
++again, the bytes can change (PayCo escapes non-ASCII characters, e.g. `é` is sent as
++`\u00e9`), and the signature will not match.
+ 
+ ```
+-signed_payload = t + "." + payload
++signed_payload = t + "." + raw_body_bytes
+ v1 = hex(HMAC_SHA256(secret, signed_payload))
+ ```
+ 

@@ -1,0 +1,188 @@
+diff --git a/app/lib/db.js b/app/lib/db.js
+index c5d18f7..9dd28aa 100644
+--- a/app/lib/db.js
++++ b/app/lib/db.js
+@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS jobs (
+   id               INTEGER PRIMARY KEY AUTOINCREMENT,
+   event_id         TEXT NOT NULL,
+   payload          TEXT NOT NULL,
++  raw_body         BLOB NOT NULL,
+   signature_header TEXT,
+   status           TEXT NOT NULL DEFAULT 'pending',
+   created_at       TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+diff --git a/app/lib/queue.js b/app/lib/queue.js
+index e97efe4..96c38e6 100644
+--- a/app/lib/queue.js
++++ b/app/lib/queue.js
+@@ -9,10 +9,10 @@ class JobQueue {
+   constructor(db) {
+     this.db = db;
+     this.insert = db.prepare(
+-      'INSERT INTO jobs (event_id, payload, signature_header) VALUES (?, ?, ?)'
++      'INSERT INTO jobs (event_id, payload, raw_body, signature_header) VALUES (?, ?, ?, ?)'
+     );
+     this.selectPending = db.prepare(
+-      "SELECT id, event_id, payload, signature_header FROM jobs WHERE status = 'pending' ORDER BY id LIMIT ?"
++      "SELECT id, event_id, payload, raw_body, signature_header FROM jobs WHERE status = 'pending' ORDER BY id LIMIT ?"
+     );
+     this.update = db.prepare(
+       "UPDATE jobs SET status = ?, processed_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?"
+@@ -21,12 +21,13 @@ class JobQueue {
+   }
+ 
+   /** @returns {number} job id */
+-  enqueue({ event_id, payload, signature_header }) {
+-    const info = this.insert.run(event_id, JSON.stringify(payload), signature_header || null);
++  enqueue({ event_id, payload, raw_body, signature_header }) {
++    if (!Buffer.isBuffer(raw_body)) throw new TypeError('raw_body must be the exact request bytes');
++    const info = this.insert.run(event_id, JSON.stringify(payload), raw_body, signature_header || null);
+     return Number(info.lastInsertRowid);
+   }
+ 
+-  /** @returns {Array<{id:number, event_id:string, payload:object, signature_header:string|null}>} */
++  /** @returns {Array<{id:number, event_id:string, payload:object, raw_body:Buffer, signature_header:string|null}>} */
+   take(limit = 25) {
+     return this.selectPending.all(limit).map((row) => ({ ...row, payload: JSON.parse(row.payload) }));
+   }
+diff --git a/app/lib/signature.js b/app/lib/signature.js
+index ed4f552..f5c3880 100644
+--- a/app/lib/signature.js
++++ b/app/lib/signature.js
+@@ -19,13 +19,14 @@ function parseSignatureHeader(header) {
+ }
+ 
+ /**
+- * The payload bytes a PayCo signature covers. Per PayCo's webhook docs, "the signature is
+- * computed over the JSON payload", so this is the payload in JSON form.
+- * @param {object} payload the webhook event
++ * The bytes a PayCo signature covers: the exact raw request body as received. Never
++ * re-serialize parsed JSON to get them (escapes such as \u00e9 would change).
++ * @param {Buffer} rawBody
+  * @returns {Buffer}
+  */
+-function payloadBytes(payload) {
+-  return Buffer.from(JSON.stringify(payload), 'utf8');
++function payloadBytes(rawBody) {
++  if (!Buffer.isBuffer(rawBody)) throw new TypeError('verify over the raw request bytes');
++  return rawBody;
+ }
+ 
+ /**
+@@ -34,17 +35,17 @@ function payloadBytes(payload) {
+  * Follows PayCo's docs: v1 = hex(HMAC_SHA256(secret, t + "." + payload)), compared in
+  * constant time.
+  *
+- * @param {object} payload  the webhook event
++ * @param {Buffer} rawBody  the exact request body bytes
+  * @param {string} header   value of the PayCo-Signature header
+  * @param {string} secret   the endpoint signing secret
+  * @returns {boolean}
+  */
+-function verifySignature(payload, header, secret) {
++function verifySignature(rawBody, header, secret) {
+   const sig = parseSignatureHeader(header);
+   if (!sig) return false;
+   const expected = crypto
+     .createHmac('sha256', secret)
+-    .update(Buffer.concat([Buffer.from(`${sig.t}.`, 'utf8'), payloadBytes(payload)]))
++    .update(Buffer.concat([Buffer.from(`${sig.t}.`, 'utf8'), payloadBytes(rawBody)]))
+     .digest();
+   const given = Buffer.from(sig.v1, 'hex');
+   return given.length === expected.length && crypto.timingSafeEqual(given, expected);
+diff --git a/app/server.js b/app/server.js
+index 29a79e4..a1f1bf7 100644
+--- a/app/server.js
++++ b/app/server.js
+@@ -12,7 +12,8 @@ const VERDICT_WAIT_MS = Number(process.env.VERDICT_WAIT_MS || 3000);
+ 
+ function createApp(queue) {
+   const app = express();
+-  app.use(express.json());
++  // Keep the exact request bytes: the signature covers them, not our re-serialization.
++  app.use(express.json({ verify: (req, _res, buf) => { req.rawBody = Buffer.from(buf); } }));
+ 
+   app.get('/health', (_req, res) => res.json({ status: 'ok' }));
+ 
+@@ -24,6 +25,7 @@ function createApp(queue) {
+     const jobId = queue.enqueue({
+       event_id: event.id,
+       payload: event,
++      raw_body: req.rawBody,
+       signature_header: req.get('PayCo-Signature'),
+     });
+ 
+diff --git a/app/test/webhooks.test.js b/app/test/webhooks.test.js
+index ab2730f..1e99a7a 100644
+--- a/app/test/webhooks.test.js
++++ b/app/test/webhooks.test.js
+@@ -14,8 +14,13 @@ const { processPending } = require('../worker');
+ 
+ const SECRET = 'whsec_test_only';
+ 
+-function signedHeader(payload, t = 1762300800) {
+-  const v1 = crypto.createHmac('sha256', SECRET).update(`${t}.${JSON.stringify(payload)}`).digest('hex');
++// What PayCo sends: Python's compact json.dumps with ensure_ascii (\u00e9, not raw é).
++function pycoBytes(payload) {
++  return Buffer.from(JSON.stringify(payload).replace(/[\u0080-\uffff]/g, (c) => '\\u' + c.charCodeAt(0).toString(16).padStart(4, '0')), 'utf8');
++}
++
++function signedHeader(raw, t = 1762300800) {
++  const v1 = crypto.createHmac('sha256', SECRET).update(Buffer.concat([Buffer.from(`${t}.`), raw])).digest('hex');
+   return `t=${t},v1=${v1}`;
+ }
+ 
+@@ -33,21 +38,32 @@ test('parses the signature header', () => {
+ });
+ 
+ test('accepts a valid signature', () => {
+-  assert.equal(verifySignature(EVENT, signedHeader(EVENT), SECRET), true);
++  const raw = pycoBytes(EVENT);
++  assert.equal(verifySignature(raw, signedHeader(raw), SECRET), true);
+ });
+ 
+ test('rejects a tampered payload or wrong secret', () => {
+-  const tampered = { ...EVENT, data: { ...EVENT.data, amount_cents: 1 } };
+-  assert.equal(verifySignature(tampered, signedHeader(EVENT), SECRET), false);
+-  assert.equal(verifySignature(EVENT, signedHeader(EVENT), 'other'), false);
++  const raw = pycoBytes(EVENT);
++  const tampered = pycoBytes({ ...EVENT, data: { ...EVENT.data, amount_cents: 1 } });
++  assert.equal(verifySignature(tampered, signedHeader(raw), SECRET), false);
++  assert.equal(verifySignature(raw, signedHeader(raw), 'other'), false);
++});
++
++test('regression: non-ASCII names verify over the raw escaped bytes', () => {
++  const event = { ...EVENT, data: { ...EVENT.data, customer: { id: 'cus_042', name: 'Chlo\u00e9 Martin', country: 'FR' } } };
++  const raw = pycoBytes(event);
++  assert.ok(raw.includes('\\u00e9'), 'PayCo sends the escaped form');
++  assert.equal(verifySignature(raw, signedHeader(raw), SECRET), true);
+ });
+ 
+ test('worker verifies queued jobs and records an audit row', () => {
+   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'shopco-'));
+   const db = open(path.join(dir, 'jobs.db'));
+   const queue = new JobQueue(db);
+-  const good = queue.enqueue({ event_id: EVENT.id, payload: EVENT, signature_header: signedHeader(EVENT) });
+-  const bad = queue.enqueue({ event_id: 'evt_0002', payload: { ...EVENT, id: 'evt_0002' }, signature_header: signedHeader(EVENT) });
++  const raw = pycoBytes(EVENT);
++  const good = queue.enqueue({ event_id: EVENT.id, payload: EVENT, raw_body: raw, signature_header: signedHeader(raw) });
++  const other = pycoBytes({ ...EVENT, id: 'evt_0002' });
++  const bad = queue.enqueue({ event_id: 'evt_0002', payload: { ...EVENT, id: 'evt_0002' }, raw_body: other, signature_header: signedHeader(raw) });
+   const logs = [];
+   const orig = console.log;
+   console.log = (line) => logs.push(line);
+diff --git a/app/worker.js b/app/worker.js
+index b8fc9d2..022f642 100644
+--- a/app/worker.js
++++ b/app/worker.js
+@@ -15,9 +15,9 @@ function processPending(db, queue, secret) {
+   const audit = db.prepare('INSERT INTO verify_audit (event_id, bytes, ok) VALUES (?, ?, ?)');
+   const jobs = queue.take();
+   for (const job of jobs) {
+-    const ok = verifySignature(job.payload, job.signature_header, secret);
++    const ok = verifySignature(job.raw_body, job.signature_header, secret);
+     queue.complete(job.id, ok ? 'verified' : 'failed');
+-    audit.run(job.event_id, payloadBytes(job.payload), ok ? 1 : 0);
++    audit.run(job.event_id, payloadBytes(job.raw_body), ok ? 1 : 0);
+     console.log(`event_id=${job.event_id} signature=${ok ? 'ok' : 'mismatch'}`);
+     if (ok) fulfilOrder(job.payload);
+   }

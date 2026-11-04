@@ -8,5 +8,6 @@ if [ -f docker-compose.yml ] && command -v docker >/dev/null 2>&1; then
   docker compose down -v --remove-orphans || true
 fi
 rm -rf workspace
+rm -f .tmp/last-simulate.json  # its event ids belonged to the wiped volumes
 ./scripts/setup.sh
 echo "reset done. Next: just up && just simulate"

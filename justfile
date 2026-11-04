@@ -19,22 +19,24 @@ reset:
 
 # Start all services (built in Phases 2, 4, 5)
 up:
-    @if [ -f docker-compose.yml ]; then docker compose up -d --build; else echo "not built yet: Phase 2 creates docker-compose.yml"; fi
+    @[ -d workspace/payco ] || ./scripts/setup.sh
+    docker compose up -d --build --wait
 
 down:
     @if [ -f docker-compose.yml ]; then docker compose down; fi
 
 # Send 60 webhooks (54 ASCII, 6 non-ASCII names)
 simulate:
-    @if [ -x scripts/simulate.sh ]; then ./scripts/simulate.sh; else echo "not built yet: Phase 2"; fi
+    ./scripts/simulate.sh
 
 # Expect exactly the 6 non-ASCII events to fail
 verify-bug:
-    @echo "not built yet: Phase 2"
+    @[ -f .tmp/last-simulate.json ] || ./scripts/simulate.sh
+    python3 scripts/verify_bug.py --expect bug
 
 # Apply reference-fixes in a temp copy; expect 60/60
 verify-fixed:
-    @echo "not built yet: Phase 2"
+    ./scripts/verify-fixed.sh
 
 # Run every test suite
 test:

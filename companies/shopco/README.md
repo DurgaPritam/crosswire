@@ -12,7 +12,7 @@
 | `hooks/disclosure_guard.py` | Phase 6 | Blocks code, secrets, names, unapproved disclosures |
 
 Key spec:
-- `POST /webhooks/payco` uses `express.json()`, enqueues `{event_id, payload: req.body, signature_header}` and returns 202. Raw bytes are **not** kept (realistic fast-ack design).
+- `POST /webhooks/payco` uses `express.json()`, enqueues `{event_id, payload: req.body, signature_header}`, then waits up to `VERDICT_WAIT_MS` (3 s) for the worker's verdict: **401** on a mismatch, otherwise 202. Raw bytes are **not** kept (queue-first design). The short wait is what lets PayCo see failures as 401s (its half of the clue); verification itself stays in the worker.
 - The worker verifies over `` `${t}.${JSON.stringify(job.payload)}` `` (raw `é`, 2 bytes), so a mismatch happens **only** for non-ASCII names.
 - Logs contain only `event_id=<id> signature=ok|mismatch`, **never names**.
 - A private `verify_audit(event_id, bytes, ok)` table in the Docker volume `/data/shopco/jobs.db` stores the exact bytes verified over (read only by shopco-evidence).
