@@ -25,3 +25,11 @@ Used by both evidence servers and the notary. Python, typed, pytest.
 - An ASCII payload: everything matches.
 - "José", provider bytes vs consumer bytes: only `data.customer.name` differs, delta **+4**, `escaped_a=true`, `escaped_b=false`.
 - A property test: no output string ever contains any input field value.
+
+## Notes
+- Hashes are the first 32 hex chars (128 bits) of HMAC-SHA256(salt, bytes): enough to compare, short enough to post.
+- Paths: dotted object keys, `[i]` for array items (`items[0].sku`).
+- `delta = len_a - len_b`, with `a` = provider (PayCo) and `b` = consumer (ShopCo): +4 per non-ASCII character
+  (`\u00e9`, 6 bytes, vs UTF-8 `é`, 2 bytes).
+- Limitation: the salt is posted in the incident room, so anyone in the room could brute-force a low-entropy field
+  (a country code) from its hash. Both companies already hold the same payment data; outsiders aren't in the room.

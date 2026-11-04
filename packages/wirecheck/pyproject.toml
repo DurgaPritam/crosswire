@@ -1,0 +1,13 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "wirecheck"
+version = "0.1.0"
+description = "Privacy-preserving JSON payload fingerprints: byte offsets, lengths and salted hashes, never values"
+requires-python = ">=3.11"
+dependencies = []
+
+[tool.setuptools]
+packages = ["wirecheck"]

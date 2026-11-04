@@ -20,3 +20,4 @@ spikes/agent-a/hooks/path.log
 # project-local temp dirs (agents must not use the shared /tmp)
 .tmp/
 **/.tmp/
+*.egg-info/
