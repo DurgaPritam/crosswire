@@ -8,7 +8,7 @@
 | `app/lib/signature.js` | Phase 2 | `verifySignature(payload, header, secret)`: ordinary-looking code |
 | `AGENT.md` | kit | Runtime playbook; becomes `CLAUDE.md` and `AGENTS.md` in the workspace |
 | `.mcp.json` | Phase 6 | Connects shopco-evidence (http://localhost:7102/mcp) |
-| `.claude/settings.json` | Phase 6 | Permissions and the disclosure-guard hook |
+| `.claude/settings.template.json` | Phase 6 | Permissions and hooks; `just setup` renders it to `.claude/settings.json` per machine (never committed) |
 | `hooks/disclosure_guard.py` | Phase 6 | Blocks code, secrets, names, unapproved disclosures |
 
 Key spec:

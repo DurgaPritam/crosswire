@@ -17,7 +17,7 @@ Click-by-click setup. Claude Code adds `crosswire.template.yaml` in Phase 7.5 an
 
 VERIFY: the registering user becomes the owner. Keep **bypass permissions off**.
 
-## 3. Addressing policies (Gateway)
+## 3. Addressing policies (Console: Your Agents → agent → Who can talk to your agent)
 | Agent | Rule | Rooms | Users | Agents |
 |---|---|---|---|---|
 | `payco-agent` | 1 | `#payco-internal` | `owner` | none |

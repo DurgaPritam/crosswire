@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Checks the tools Crosswire needs. Safe to run any time.
 set -u
+export PATH="$PATH:$HOME/.docker/bin"  # Docker Desktop installs its CLI here
 ok=0
 check() { # name, command, hint
   if command -v "$2" >/dev/null 2>&1; then

@@ -1,5 +1,6 @@
 # Crosswire commands. Recipes not built yet print which phase builds them.
 set dotenv-load := true
+export PATH := env_var('PATH') + ":" + env_var('HOME') + "/.docker/bin"
 
 default:
     @just --list
@@ -37,7 +38,7 @@ verify-fixed:
 
 # Run every test suite
 test:
-    @echo "not built yet: each phase adds its tests here"
+    ./scripts/test-all.sh
 
 # Run the notary protocol agent
 notary:

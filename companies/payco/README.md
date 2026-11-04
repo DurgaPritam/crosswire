@@ -8,7 +8,7 @@
 | `docs/webhooks.md` | Phase 2 | PayCo's public webhook docs (slightly ambiguous on purpose) |
 | `AGENT.md` | kit | Runtime playbook; becomes `CLAUDE.md` and `AGENTS.md` in the workspace |
 | `.mcp.json` | Phase 6 | Connects payco-evidence (http://localhost:7101/mcp) |
-| `.claude/settings.json` | Phase 6 | Permissions and the disclosure-guard hook |
+| `.claude/settings.template.json` | Phase 6 | Permissions and hooks; `just setup` renders it to `.claude/settings.json` per machine (never committed) |
 | `hooks/disclosure_guard.py` | Phase 6 | Blocks code, secrets, names, unapproved disclosures |
 
 Key spec:
