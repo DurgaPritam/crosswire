@@ -4,6 +4,7 @@ set -uo pipefail
 cd "$(dirname "$0")/.."
 export PATH="$PATH:$HOME/.docker/bin"
 ./scripts/ensure-venv.sh || exit 1
+[ -f spikes/agent-a/.claude/settings.json ] || ./spikes/render-settings.sh >/dev/null   # gitignored (absolute paths)
 PY=.venv/bin/python
 failed=()
 run() { # name, command...
