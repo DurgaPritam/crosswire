@@ -33,7 +33,11 @@ apply_patch shopco shopco-raw-body.patch
 
 echo "--- patched unit tests"
 .venv/bin/python -m pytest -q "$TMP/payco/api/tests" | tail -1
-(cd "$TMP/shopco/app" && ln -s "$ROOT/companies/shopco/app/node_modules" node_modules && npm test --silent 2>&1 | grep -E '^ℹ (pass|fail)'; rm node_modules)
+# ShopCo's test deps: reuse an install (source tree, or the workspace from `just setup`), else install once here
+deps=""
+for d in "$ROOT/companies/shopco/app/node_modules" "$ROOT/workspace/shopco/app/node_modules"; do [ -d "$d" ] && { deps="$d"; break; }; done
+if [ -n "$deps" ]; then ln -s "$deps" "$TMP/shopco/app/node_modules"; else (cd "$TMP/shopco/app" && npm ci --silent >/dev/null); fi
+(cd "$TMP/shopco/app" && npm test --silent 2>&1 | grep -E '^ℹ (pass|fail)')
 
 echo "--- starting patched services ($PROJECT on :$PAYCO_API_PORT/:$SHOPCO_APP_PORT)"
 PAYCO_SRC="$TMP/payco" SHOPCO_SRC="$TMP/shopco" \

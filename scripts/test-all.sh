@@ -21,6 +21,7 @@ run      "spike hooks (path_guard, block)" $PY spikes/agent-a/hooks/test_path_gu
 run      "spike runner"                $PY spikes/test_run_spikes.py
 suite_if "wirecheck"        packages/wirecheck/tests          $PY -m pytest -q packages/wirecheck/tests
 suite_if "payco api"        companies/payco/api/tests         $PY -m pytest -q companies/payco/api/tests
+[ -d companies/shopco/app/node_modules ] || (cd companies/shopco/app && echo "installing ShopCo test deps (npm ci, one time)" && npm ci --silent >/dev/null)
 suite_if "shopco app"       companies/shopco/app/test         bash -c 'cd companies/shopco/app && npm test --silent'
 suite_if "evidence servers" evidence/tests                    $PY -m pytest -q evidence/tests
 suite_if "notary"           neutral/notary/tests              $PY -m pytest -q neutral/notary/tests
