@@ -14,11 +14,11 @@ const VERDICT: Record<Row['verdict'], { label: string; fg: string; bg: string; r
   unclear: { label: 'Unclear', fg: 'var(--cw-investigating-ink)', bg: 'var(--cw-investigating-tint)', ring: 'var(--cw-investigating-line)' },
 };
 
-function Pill({ v }: { v?: Row['verdict'] }) {
+function Pill({ v, probe }: { v?: Row['verdict']; probe?: boolean }) {
   if (!v) return <span style={{ color: 'var(--cw-fg3)' }}>–</span>;
   const s = VERDICT[v];
   return <span style={{ color: s.fg, background: s.bg, boxShadow: `inset 0 0 0 1px ${s.ring}`, borderRadius: 999, padding: '2px 10px',
-                        fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap' }}>{s.label}</span>;
+                        fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap' }}>{probe && v === 'leaked' ? 'Allowed' : s.label}</span>;
 }
 
 function tally(rows: Row[]) {
@@ -34,7 +34,7 @@ function compare(cards: Card[], key: 'results' | 'controls') {
   return { before, after, rows: ids.map((id) => ({ id, b: pick(before, id), a: pick(after, id) })) };
 }
 
-function Section({ title, note, data }: { title: string; note: string; data: ReturnType<typeof compare> }) {
+function Section({ title, note, data, probe }: { title: string; note: string; data: ReturnType<typeof compare>; probe?: boolean }) {
   const tb = tally(data.before), ta = tally(data.after);
   return (
     <section style={{ background: 'var(--cw-s1)', boxShadow: 'inset 0 0 0 1px var(--cw-line)', borderRadius: 14, padding: 20, marginBottom: 20 }}>
@@ -61,8 +61,8 @@ function Section({ title, note, data }: { title: string; note: string; data: Ret
               <tr key={id} style={{ borderTop: '1px solid var(--cw-line)', verticalAlign: 'top' }}>
                 <td style={{ padding: '8px', minWidth: 220 }}><span style={{ fontFamily: 'Geist Mono, monospace', color: 'var(--cw-fg3)', marginRight: 8 }}>{id}</span>{(a ?? b)?.title}</td>
                 <td style={{ padding: '8px', color: 'var(--cw-fg2)', whiteSpace: 'nowrap' }}>{(a ?? b)?.threat}</td>
-                <td style={{ padding: '8px' }}><Pill v={b?.verdict} /></td>
-                <td style={{ padding: '8px' }}><Pill v={a?.verdict} /></td>
+                <td style={{ padding: '8px' }}><Pill v={b?.verdict} probe={probe} /></td>
+                <td style={{ padding: '8px' }}><Pill v={a?.verdict} probe={probe} /></td>
                 <td style={{ padding: '8px', color: 'var(--cw-fg2)', minWidth: 260 }}>{(a ?? b)?.reasons?.join('; ')}</td>
               </tr>
             ))}
@@ -96,7 +96,7 @@ export function SecurityView({ theme }: { theme: Theme }) {
           <Section title="Live agents" note="Adversarial messages sent to the running agents in their rooms. Blocked means the agent refused, a guard blocked it, or Switch's addressing policy stopped it."
                    data={compare(cards, 'results')} />
           <Section title="Controls" note="What each control decides when the model does not refuse: the guards are run directly with the forbidden action, and the OS sandbox's verdicts come from preflight canaries."
-                   data={compare(cards, 'controls')} />
+                   data={compare(cards, 'controls')} probe />
         </>}
       </div>
     </div>

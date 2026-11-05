@@ -74,6 +74,22 @@ they are in the code today; nothing here is fixed yet. Severity is ranked in [Ga
 | 12 | Console has no authentication | T15 | **Low** | Local only; read-only. |
 | 13 | One OS user for both companies | T13, T14 | **Accepted** (simulation) | Inherent to running the demo on one machine; documented in the README's limitations. |
 
+## Status after hardening
+
+Red-team scorecards: [`scorecards/`](scorecards/) (baseline and after). Every fix below passed `just test`, preflight
+and a clean live rehearsal (runs 9, 11 and 12).
+
+| Gap | Fix | Proof |
+|---|---|---|
+| 1 Agent rewrites its own controls | Controls pinned by hash and made immutable; guards fail closed on a mismatch; Bash can't name protected paths or change file attributes; an OS sandbox (writes only in the agent's own directory minus its controls, no reads of other workspaces or the repo, no network) | C01–C04 blocked; preflight canaries DENIED |
+| 2+3 Self-asserted approvals, not bound to content | The approver service (Docker, own Ed25519 key) signs only Priya's or Sam's own `approve D-…`, bound to the draft's canonical evidence; the guard verifies the signature and evidence and allows no unapproved prose | C05, C06 blocked; approver tests |
+| 8 Stale approvals and salts | The approver signs and serves an approval only for the current incident and the salt the notary issued for it | approver incident-binding tests; C07 blocked |
+| 10 `console/` not in deny lists | `console/` and `approver/` denied to every agent | workspace config tests |
+| 7 Ledgers not tamper-evident | Hash-chained guard logs and a signed, chained approver ledger; `just verify-ledger` (run by every rehearsal) cross-checks every allowed disclosure | ledger tests; run 12 grader |
+| 5 Narrow outbound guard | More secret and credential formats, hashed ASCII customer-name matching, code matching that ignores spacing and renamed identifiers | C08, C09 blocked; 0 false positives replaying 191 recorded agent posts |
+| 6 Leakage budget | At most 5 events fingerprinted per incident salt per evidence server | evidence tests |
+| 9 Unauthenticated localhost services | A per-company token on each evidence server | preflight: no token or the other company's token gets 401 |
+
 ## Known limits
 
 These remain after the hardening, by decision or because the one-machine simulation can't close them.
