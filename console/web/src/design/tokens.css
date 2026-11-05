@@ -1,0 +1,143 @@
+/* Crosswire Design System 1.0 — design tokens
+   Apply a theme with <html data-theme="dark"> (default) or data-theme="light".
+   Every value matches the canvas (Main.dc.html + console CSS) exactly. */
+
+:root,
+[data-theme="dark"] {
+  color-scheme: dark;
+  /* Surfaces — depth through luminance, never pure black */
+  --cw-bg: #0C0B0A;
+  --cw-s1: #131210;
+  --cw-s2: #191816;
+  --cw-s3: #201F1C;
+  --cw-s4: #2A2825;
+  --cw-line: rgba(255, 236, 214, .07);
+  --cw-line2: rgba(255, 236, 214, .12);
+  --cw-hi: rgba(255, 244, 232, .05);   /* 1px inner highlight, raised */
+  --cw-hi2: rgba(255, 244, 232, .09);  /* 1px inner highlight, overlay */
+
+  /* Text */
+  --cw-fg: #EEEAE4;
+  --cw-fg2: #A9A39B;
+  --cw-fg3: #8A847C;
+
+  /* Roles: base (fills, dots, lines), ink (text, ≥4.5:1), tint (backgrounds), line (rings) */
+  --cw-payco: #FF7E62;        --cw-payco-ink: #FF9A83;        --cw-payco-tint: rgba(255, 126, 98, .12);  --cw-payco-line: rgba(255, 126, 98, .32);
+  --cw-shopco: #35D0BE;       --cw-shopco-ink: #5EDCCD;       --cw-shopco-tint: rgba(53, 208, 190, .11); --cw-shopco-line: rgba(53, 208, 190, .30);
+  --cw-neutral: #B3ABA0;      --cw-neutral-ink: #C4BDB3;      --cw-neutral-tint: rgba(179, 171, 160, .09); --cw-neutral-line: rgba(179, 171, 160, .24);
+  --cw-approved: #8FE3B4;     --cw-approved-ink: #A3EBC2;     --cw-approved-tint: rgba(143, 227, 180, .10); --cw-approved-line: rgba(143, 227, 180, .28);
+  --cw-investigating: #F2B45A; --cw-investigating-ink: #F6C67E; --cw-investigating-tint: rgba(242, 180, 90, .12); --cw-investigating-line: rgba(242, 180, 90, .32);
+  --cw-blocked: #FF4F4A;      --cw-blocked-ink: #FF7A73;      --cw-blocked-tint: rgba(255, 79, 74, .12);  --cw-blocked-line: rgba(255, 79, 74, .34);
+  --cw-blocked-core: #FFD2CE; /* centre of the flashing refusal seam */
+
+  /* Status aliases (use these in components) */
+  --cw-status-investigating: var(--cw-investigating);
+  --cw-status-resolved: var(--cw-approved);
+  --cw-status-live: var(--cw-approved);
+  --cw-status-blocked: var(--cw-blocked);
+  /* Root cause agreed = the seam: coral → mid → teal */
+  --cw-status-rootcause: linear-gradient(90deg, var(--cw-payco), var(--cw-seam-mid), var(--cw-shopco));
+  --cw-status-rootcause-tint: linear-gradient(90deg, var(--cw-payco-tint), var(--cw-neutral-tint), var(--cw-shopco-tint));
+
+  /* Seam glow — the brand signature */
+  --cw-seam-mid: #FFFFFF;
+  --cw-seam-glow: .85;                      /* opacity of the 6px blurred bloom */
+  --cw-seam-shadow: rgba(255, 255, 255, .32);
+  --cw-seam: linear-gradient(90deg, transparent 0%, var(--cw-payco) 16%, var(--cw-seam-mid) 50%, var(--cw-shopco) 84%, transparent 100%);
+  --cw-seam-v: linear-gradient(180deg, transparent 0%, var(--cw-payco) 14%, var(--cw-seam-mid) 50%, var(--cw-shopco) 86%, transparent 100%);
+  --cw-travel: #FFFFFF;                     /* light travelling along seams */
+
+  /* Focus */
+  --cw-focus: rgba(255, 248, 240, .92);
+
+  /* Elevation */
+  --cw-sh1: 0 1px 2px rgba(0, 0, 0, .45);
+  --cw-sh2: 0 14px 32px -12px rgba(0, 0, 0, .7), 0 2px 6px -2px rgba(0, 0, 0, .45);
+  --cw-sh3: 0 32px 80px -24px rgba(0, 0, 0, .8), 0 8px 24px -8px rgba(0, 0, 0, .55);
+  --cw-press-shadow: rgba(0, 0, 0, .45);
+
+  /* Buttons */
+  --cw-primary-bg: #EEEAE4; --cw-primary-fg: #121110; --cw-primary-hover: #FFFFFF; --cw-primary-active: #D6D0C7;
+  --cw-approve-bg: #8FE3B4; --cw-approve-fg: #0A1A11;
+
+  /* Controls */
+  --cw-seg-bg: #0C0B0A; --cw-seg-on: #25231F; --cw-code-bg: #0E0D0C;
+
+  /* Glass (always backdrop-filter + 1px inner highlight + line ring + sh2/sh3) */
+  --cw-glass-bar: rgba(19, 18, 16, .72);     /* top bar, timeline     · blur 20 saturate 1.3 */
+  --cw-glass-panel: rgba(27, 25, 23, .62);   /* side panel / rail      · blur 24 saturate 1.35 */
+  --cw-glass-card: rgba(36, 33, 30, .58);    /* crossing card          · blur 18 saturate 1.4 */
+  --cw-glass-toast: rgba(34, 24, 22, .66);   /* refusal toast          · blur 20 saturate 1.4 */
+  --cw-glass-modal: rgba(30, 28, 25, .70);   /* byte-diff panel        · blur 28 saturate 1.4 */
+  --cw-scrim: rgba(12, 11, 10, .60);         /* behind modal           · blur 6 */
+  --cw-frost: rgba(19, 18, 16, .50);         /* hidden lane            · blur 18 saturate .7 */
+  --cw-inset: rgba(12, 11, 10, .40);         /* tables inside glass */
+  --cw-lock-bg: rgba(44, 20, 18, .72);
+
+  /* Ambient light */
+  --cw-glow-neutral: rgba(255, 240, 225, .045);
+  --cw-glow-payco: rgba(255, 126, 98, .07);
+  --cw-glow-shopco: rgba(53, 208, 190, .065);
+  --cw-playhead: #FFFFFF; --cw-playhead-glow: rgba(255, 255, 255, .6);
+  --cw-shimmer: rgba(255, 244, 232, .06);
+  --cw-grain-opacity: .06; --cw-grain-blend: soft-light;
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+  --cw-bg: #F5F3EF;
+  --cw-s1: #FFFFFF;
+  --cw-s2: #FBFAF8;
+  --cw-s3: #F0EDE8;
+  --cw-s4: #E6E2DC;
+  --cw-line: rgba(40, 28, 16, .08);
+  --cw-line2: rgba(40, 28, 16, .14);
+  --cw-hi: rgba(255, 255, 255, .9);
+  --cw-hi2: #FFFFFF;
+  --cw-fg: #1A1815;
+  --cw-fg2: #57524B;
+  --cw-fg3: #6E6860;
+  --cw-payco: #E8603F;        --cw-payco-ink: #B8432A;        --cw-payco-tint: rgba(232, 96, 63, .10);   --cw-payco-line: rgba(232, 96, 63, .32);
+  --cw-shopco: #14A796;       --cw-shopco-ink: #0A7469;       --cw-shopco-tint: rgba(20, 167, 150, .10); --cw-shopco-line: rgba(20, 167, 150, .32);
+  --cw-neutral: #8F877C;      --cw-neutral-ink: #5F584F;      --cw-neutral-tint: rgba(143, 135, 124, .11); --cw-neutral-line: rgba(143, 135, 124, .30);
+  --cw-approved: #3FBF7F;     --cw-approved-ink: #1B7A4B;     --cw-approved-tint: rgba(63, 191, 127, .12); --cw-approved-line: rgba(63, 191, 127, .36);
+  --cw-investigating: #D9901F; --cw-investigating-ink: #8F5A07; --cw-investigating-tint: rgba(217, 144, 31, .12); --cw-investigating-line: rgba(217, 144, 31, .36);
+  --cw-blocked: #E0353A;      --cw-blocked-ink: #B8242A;      --cw-blocked-tint: rgba(224, 53, 58, .09);  --cw-blocked-line: rgba(224, 53, 58, .30);
+  --cw-blocked-core: #FF9A9A;
+  --cw-seam-mid: #D9CFC4;
+  --cw-seam-glow: .55;
+  --cw-seam-shadow: rgba(232, 96, 63, .22);
+  --cw-travel: #E8603F;
+  --cw-focus: #1A1815;
+  --cw-sh1: 0 1px 2px rgba(60, 40, 20, .08);
+  --cw-sh2: 0 14px 32px -12px rgba(60, 40, 20, .2), 0 2px 6px -2px rgba(60, 40, 20, .08);
+  --cw-sh3: 0 32px 80px -24px rgba(60, 40, 20, .3), 0 8px 24px -8px rgba(60, 40, 20, .12);
+  --cw-press-shadow: rgba(60, 40, 20, .16);
+  --cw-primary-bg: #1A1815; --cw-primary-fg: #F7F5F1; --cw-primary-hover: #2C2925; --cw-primary-active: #000000;
+  --cw-approve-bg: #1B7A4B; --cw-approve-fg: #FFFFFF;
+  --cw-seg-bg: #ECE9E4; --cw-seg-on: #FFFFFF; --cw-code-bg: #F7F5F2;
+  --cw-glass-bar: rgba(255, 255, 255, .74);
+  --cw-glass-panel: rgba(255, 255, 255, .68);
+  --cw-glass-card: rgba(255, 255, 255, .72);
+  --cw-glass-toast: rgba(255, 247, 246, .82);
+  --cw-glass-modal: rgba(255, 255, 255, .78);
+  --cw-scrim: rgba(245, 243, 239, .62);
+  --cw-frost: rgba(245, 243, 239, .55);
+  --cw-inset: rgba(240, 237, 232, .6);
+  --cw-lock-bg: rgba(255, 240, 238, .85);
+  --cw-glow-neutral: rgba(255, 255, 255, .9);
+  --cw-glow-payco: rgba(232, 96, 63, .08);
+  --cw-glow-shopco: rgba(20, 167, 150, .07);
+  --cw-playhead: #1A1815; --cw-playhead-glow: rgba(26, 24, 21, .25);
+  --cw-shimmer: rgba(255, 255, 255, .8);
+  --cw-grain-opacity: .05; --cw-grain-blend: multiply;
+}
+
+/* Role scoping: set .role-payco etc. on any element and use var(--x*) inside it */
+.role-payco         { --x: var(--cw-payco);         --xi: var(--cw-payco-ink);         --xt: var(--cw-payco-tint);         --xl: var(--cw-payco-line); }
+.role-shopco        { --x: var(--cw-shopco);        --xi: var(--cw-shopco-ink);        --xt: var(--cw-shopco-tint);        --xl: var(--cw-shopco-line); }
+.role-neutral       { --x: var(--cw-neutral);       --xi: var(--cw-neutral-ink);       --xt: var(--cw-neutral-tint);       --xl: var(--cw-neutral-line); }
+.role-approved      { --x: var(--cw-approved);      --xi: var(--cw-approved-ink);      --xt: var(--cw-approved-tint);      --xl: var(--cw-approved-line); }
+.role-investigating { --x: var(--cw-investigating); --xi: var(--cw-investigating-ink); --xt: var(--cw-investigating-tint); --xl: var(--cw-investigating-line); }
+.role-blocked       { --x: var(--cw-blocked);       --xi: var(--cw-blocked-ink);       --xt: var(--cw-blocked-tint);       --xl: var(--cw-blocked-line); }
+.role-seam          { --x: var(--cw-seam-mid);      --xi: var(--cw-fg);                --xt: var(--cw-neutral-tint);       --xl: var(--cw-neutral-line); }
