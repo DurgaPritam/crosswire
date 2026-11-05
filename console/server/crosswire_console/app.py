@@ -135,7 +135,8 @@ class Server:
             self.shared_room = json.loads(rooms.read_text()).get("payco-shopco-shared")
         if env.get("SWITCH_ADMIN_EMAIL") and env.get("SWITCH_BRIDGE_URL"):
             try:
-                self.gateway = await asyncio.get_running_loop().run_in_executor(None, phase7.admin, env)
+                # read-only: the Console only GETs the mediator's record; any write is refused before it is sent
+                self.gateway = await asyncio.get_running_loop().run_in_executor(None, lambda: phase7.admin(env, read_only=True))
             except Exception as exc:  # noqa: BLE001
                 log(f"gateway login failed: {exc}")
         self.observer = Observer(env.get("SWITCH_BRIDGE_URL", ""), self.bus.emit, self.on_record)
@@ -201,6 +202,8 @@ class Server:
         if path == "/api/replay":
             evs = read_replay((q.get("name") or [""])[0])
             return (200, evs) if evs is not None else (404, {"error": "no such recording"})
+        if not self.live and method != "GET":  # Replay mode is strictly read-only: no recorder, no Run button
+            return 405, {"ok": False, "error": "replay mode is read-only"}
         if path == "/api/record" and method == "POST":
             name = json.loads(body or b"{}").get("name", "")
             if not NAME_RE.match(name):

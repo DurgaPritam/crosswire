@@ -16,6 +16,7 @@ from __future__ import annotations
 import http.cookiejar
 import json
 import os
+import re
 import secrets
 import subprocess
 import sys
@@ -48,16 +49,46 @@ class GatewayError(RuntimeError):
     pass
 
 
+AUDIT = ROOT / ".tmp/admin-api.log.jsonl"
+ADMIN_WHO = [""]   # the admin's login email, set by admin(); only used to label audit lines (never written out)
+
+
 class Gateway:
     """Cookie-authenticated client for /gateway on the agent bridge."""
 
-    def __init__(self, bridge: str) -> None:
+    def __init__(self, bridge: str, read_only: bool = False) -> None:
         self.base = bridge.rstrip("/") + "/gateway"
         self.jar = http.cookiejar.CookieJar()
         self.opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(self.jar))
         self.who = "?"
+        self.read_only = read_only   # True: only GET (and the login itself); anything else raises before sending
+
+    def _audit(self, method: str, path: str, status: int | str) -> None:
+        """Every Gateway call is appended to .tmp/admin-api.log.jsonl: who, method, path, status, caller. Never bodies."""
+        try:
+            AUDIT.parent.mkdir(exist_ok=True)
+            caller = Path(sys.argv[0]).name if sys.argv and sys.argv[0] else "?"
+            with AUDIT.open("a", encoding="utf-8") as f:
+                f.write(json.dumps({"ts": time.strftime("%Y-%m-%dT%H:%M:%S%z"), "as": "admin" if self.who == ADMIN_WHO[0] else "user",
+                                    "caller": caller, "pid": os.getpid(), "method": method, "path": path.split("?")[0],
+                                    "status": status}) + "\n")
+        except OSError:
+            pass
 
     def req(self, method: str, path: str, body: Any = None) -> Any:
+        if self.read_only and method != "GET" and path != "/auth/login":
+            self._audit(method, path, "refused-read-only")
+            raise GatewayError(f"read-only Gateway client refused {method} /gateway{path.split('?')[0]}")
+        try:
+            out = self._send(method, path, body)
+        except GatewayError as exc:
+            m = re.search(r"HTTP (\d+)", str(exc))
+            self._audit(method, path, int(m.group(1)) if m else "error")
+            raise
+        self._audit(method, path, 200)
+        return out
+
+    def _send(self, method: str, path: str, body: Any = None) -> Any:
         data = json.dumps(body).encode() if body is not None else None
         r = urllib.request.Request(self.base + path, data=data, method=method)
         r.add_header("Content-Type", "application/json")
@@ -97,11 +128,12 @@ def env() -> dict[str, str]:
     return mmlib.load_env()
 
 
-def admin(e: dict[str, str]) -> Gateway:
+def admin(e: dict[str, str], read_only: bool = False) -> Gateway:
     missing = [k for k in ("SWITCH_ADMIN_EMAIL", "SWITCH_ADMIN_PASSWORD", "SWITCH_BRIDGE_URL") if not e.get(k)]
     if missing:
         raise SystemExit(f"missing in .env: {missing}. Add the local Switch admin login (never commit .env).")
-    return Gateway(e["SWITCH_BRIDGE_URL"]).login(e["SWITCH_ADMIN_EMAIL"], e["SWITCH_ADMIN_PASSWORD"])
+    ADMIN_WHO[0] = e["SWITCH_ADMIN_EMAIL"]
+    return Gateway(e["SWITCH_BRIDGE_URL"], read_only=read_only).login(e["SWITCH_ADMIN_EMAIL"], e["SWITCH_ADMIN_PASSWORD"])
 
 
 def items(payload: Any, *keys: str) -> list[dict[str, Any]]:

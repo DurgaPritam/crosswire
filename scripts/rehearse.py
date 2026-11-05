@@ -186,7 +186,7 @@ def prepare(reset: bool) -> None:
         sh("just", "notary-up")  # rebuild + restart the notary container from the current code
     for agent in ("payco", "shopco", "mediator"):
         print(sh("scripts/restart-agent.sh", f"workspace/{agent}").strip().splitlines()[-1])
-    print(sh(sys.executable, "scripts/phase7.py", "instructions").strip().splitlines()[-1])
+    # no admin writes here: agent definitions are synced by hand between runs (preflight fails on drift)
     r = subprocess.run([sys.executable, str(ROOT / "scripts/preflight.py")], cwd=ROOT, text=True)
     if r.returncode != 0:
         raise SystemExit("preflight failed: not starting the run (see rehearsals/preflight-*.json)")

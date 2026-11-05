@@ -66,9 +66,12 @@ class Check:
 
 
 def clean_state(gw: phase7.Gateway, shared_id: str) -> int:
+    """The ONLY admin write in the run cycle: delete the previous incident's record (a room document named INC-nnnn
+    in the shared room). Nothing else is created, edited or deleted. Every call is in .tmp/admin-api.log.jsonl."""
     docs = phase7.items(gw.req("GET", f"/rooms/{shared_id}/documents"), "documents")
-    stale = [d for d in docs if re.match(r"^(INC-\d{4}|PREFLIGHT)", d.get("name", ""))]
+    stale = [d for d in docs if re.fullmatch(r"INC-\d{4}", d.get("name", ""))]
     for d in stale:
+        print(f"  cleanup (admin): DELETE /gateway/documents/{d['id']} (record {d['name']})", flush=True)
         gw.req("DELETE", f"/documents/{d['id']}")
     return len(stale)
 
@@ -115,12 +118,16 @@ def main() -> int:
         return 1
 
     drift = phase7.instructions_drift(gw)
-    check("agents' Switch instructions match their AGENT.md", not drift, ", ".join(drift))
+    check("agents' Switch instructions match their AGENT.md", not drift,
+          (", ".join(drift) + ": sync BETWEEN runs with `.venv/bin/python scripts/phase7.py instructions`, then restart "
+           "the agent sessions; rehearse.py no longer patches agent definitions itself") if drift else "")
 
     removed = clean_state(gw, st["rooms"][SHARED])
     left = [d["name"] for d in phase7.items(gw.req("GET", f"/rooms/{st['rooms'][SHARED]}/documents"), "documents")
             if re.match(r"^(INC-|PREFLIGHT)", d.get("name", ""))]
-    check("no open incident record in the shared room", not left, f"removed {removed} stale record(s)" if removed else "")
+    check("no open incident record in the shared room", not left,
+          (f"still there: {', '.join(left)} (a PREFLIGHT leftover is never deleted by this script: delete it in Switch Console)"
+           if left else f"removed {removed} stale incident record(s)" if removed else ""))
 
     held = roles_held(priya, chans[SHARED])
     for role, agent in ROLE_HOLDER.items():

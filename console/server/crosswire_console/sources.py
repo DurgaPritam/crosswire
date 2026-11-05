@@ -32,6 +32,14 @@ def log(msg: str) -> None:
     print(f"{time.strftime('%H:%M:%S')} console: {msg}", file=sys.stderr, flush=True)
 
 
+class ReadOnlySwitchClient(SwitchClient):
+    """The observer's protocol client: it may open its event stream and heartbeat, and nothing else. Every Switch
+    operation (post_message, update_room_document, connect_to_room, ...) is refused here, before any request."""
+
+    async def op(self, name: str, **args: Any) -> Any:  # noqa: ARG002
+        raise PermissionError(f"the Console observer is read-only: refused Switch operation {name!r}")
+
+
 class Observer:
     def __init__(self, bridge: str, emit: Emit, on_record: Callable[[str], Awaitable[None]]) -> None:
         self.bridge = bridge
@@ -54,7 +62,7 @@ class Observer:
         state = json.loads(STATE.read_text()) if STATE.exists() else {}
         conn = state.get("connection_id") or __import__("uuid").uuid4().hex
         STATE.write_text(json.dumps({"connection_id": conn}))
-        client = SwitchClient(self.bridge, creds["id"], creds["api_key"], conn)
+        client = ReadOnlySwitchClient(self.bridge, creds["id"], creds["api_key"], conn)
         backoff = 1.0
         while True:
             self.status = "connecting"
