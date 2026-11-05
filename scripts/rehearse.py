@@ -181,7 +181,7 @@ def prepare(reset: bool) -> None:
         sh("just", "reset")
         sh("just", "up")
         print(sh("just", "simulate").strip().splitlines()[-1])
-        sh("docker", "compose", "--profile", "notary", "up", "-d", "--build", "notary")  # the notary's current code
+        sh("just", "notary-up")  # rebuild + restart the notary container from the current code
     for agent in ("payco", "shopco", "mediator"):
         print(sh("scripts/restart-agent.sh", f"workspace/{agent}").strip().splitlines()[-1])
     print(sh(sys.executable, "scripts/phase7.py", "instructions").strip().splitlines()[-1])

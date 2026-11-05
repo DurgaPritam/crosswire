@@ -46,6 +46,10 @@ test:
 notary:
     cd neutral/notary && ../../.venv/bin/python -m notary
 
+# Rebuild and (re)start the notary container from the current code
+notary-up:
+    docker compose --profile notary up -d --build notary
+
 # One-time Notary registration (NOTARY_REGISTRATION_TOKEN = a registration key minted by `host`)
 notary-register *args:
     cd neutral/notary && ../../.venv/bin/python -m notary.register {{args}}
