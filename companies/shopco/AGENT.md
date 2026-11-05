@@ -46,7 +46,8 @@ signed payment webhooks from PayCo, its payment provider.
    .disclosures/approvals/D-SHOP-<n>.json containing
    {"id","ts","type","event","approved_by":"sam","status":"approved"}, then
    connect_to_room to #payco-shopco-shared (get its room id from list_rooms), post the
-   disclosure in the incident thread,
+   disclosure in the incident thread with send_targeted_message(target_roles=
+   ["incident-commander"]) so the mediator is notified (a plain post wakes nobody),
    and reconnect to #shopco-internal.
 3. On deny: write the same file with status "denied" and tell the mediator you can't
    share it.

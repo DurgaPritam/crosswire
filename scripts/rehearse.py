@@ -177,6 +177,7 @@ def prepare(reset: bool) -> None:
         print(sh("just", "simulate").strip().splitlines()[-1])
     for agent in ("payco", "shopco", "mediator"):
         print(sh("scripts/restart-agent.sh", f"workspace/{agent}").strip().splitlines()[-1])
+    print(sh(sys.executable, "scripts/phase7.py", "instructions").strip().splitlines()[-1])
     r = subprocess.run([sys.executable, str(ROOT / "scripts/preflight.py")], cwd=ROOT, text=True)
     if r.returncode != 0:
         raise SystemExit("preflight failed: not starting the run (see rehearsals/preflight-*.json)")
@@ -202,6 +203,36 @@ def render(n: int, started: datetime, posts: list[tuple[str, mmlib.Post]], g: Gr
     return "\n".join(lines) + "\n"
 
 
+CONSOLE = "http://127.0.0.1:7300"
+LOCK = ROOT / ".tmp" / "rehearsal.lock"
+
+
+def console_call(path: str, body: dict | None = None) -> None:
+    """Tell the Incident Console's recorder about the run (best effort: the console may not be running)."""
+    import urllib.request
+    try:
+        req = urllib.request.Request(CONSOLE + path, data=json.dumps(body or {}).encode(), method="POST",
+                                     headers={"Content-Type": "application/json"})
+        urllib.request.urlopen(req, timeout=3).read()
+    except OSError:
+        pass
+
+
+def take_lock() -> None:
+    """One rehearsal at a time, whoever starts it (this script, the Console's Run button)."""
+    import os
+    LOCK.parent.mkdir(exist_ok=True)
+    if LOCK.exists():
+        try:
+            pid = int(LOCK.read_text().split()[0])
+            if pid != os.getpid():
+                os.kill(pid, 0)
+                raise SystemExit(f"another rehearsal is running (pid {pid})")
+        except (OSError, ValueError):
+            pass
+    LOCK.write_text(f"{os.getpid()} {datetime.now().isoformat(timespec='seconds')}\n")
+
+
 def one_run(n: int, reset: bool) -> Grade:
     env = mmlib.load_env()
     humans = {h: mmlib.Mattermost(env["MM_URL"]).login(h, env[f"MM_{h.upper()}_PASSWORD"]) for h in ("priya", "sam")}
@@ -212,6 +243,7 @@ def one_run(n: int, reset: bool) -> Grade:
             raise SystemExit(f"{who} is not in #{name}: run scripts/phase7.py first")
         channels[name] = ch["id"]
     prepare(reset)
+    console_call("/api/record", {"name": f"run-{n}"})
     started = datetime.now()
     driver = Driver()
     opening = humans["sam"].send(channels[SHARED], OPENING)
@@ -259,6 +291,7 @@ def one_run(n: int, reset: bool) -> Grade:
             break
         time.sleep(5)
     posts = sorted(seen.values(), key=lambda cp: cp[1].create_at)
+    console_call("/api/record/stop")
     guard_stats = {c: sh("scripts/guard-stats.sh", c).strip() for c in ("payco", "shopco")}
     g = grade(posts, driver, guard_stats)
     REHEARSALS.mkdir(exist_ok=True)
@@ -271,7 +304,7 @@ def one_run(n: int, reset: bool) -> Grade:
 
 
 def next_run_number() -> int:
-    nums = [int(m.group(1)) for p in REHEARSALS.glob("run-*.md") if (m := re.match(r"run-(\d+)\.md$", p.name))]
+    nums = [int(m.group(1)) for p in REHEARSALS.glob("run-*") if (m := re.match(r"run-(\d+)\.", p.name))]
     return max(nums, default=0) + 1
 
 
@@ -281,6 +314,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--preflight-only", action="store_true", help="prepare exactly as a run does (reset, restart, preflight), then stop")
     ap.add_argument("--runs", type=int, default=1, help="stop after this many clean runs in a row (or the first unclean one)")
     args = ap.parse_args(argv)
+    take_lock()
     if args.preflight_only:
         prepare(reset=not args.no_reset)
         return 0

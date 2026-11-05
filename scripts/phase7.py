@@ -37,7 +37,7 @@ ROOM_NAMES = {"payco-internal": "payco-internal", "shopco-internal": "shopco-int
               "payco-shopco-shared": "payco-shopco-shared"}
 PEOPLE = {"priya": "Priya (PayCo)", "sam": "Sam (ShopCo)"}
 AGENT_NAMES = ["payco-agent", "shopco-agent", "mediator", "notary"]
-STEPS = ["users", "notary", "template", "rooms", "claims", "policies", "roles", "smoke"]
+STEPS = ["users", "notary", "template", "rooms", "claims", "policies", "roles", "smoke", "instructions"]
 
 
 def say(msg: str) -> None:
@@ -380,6 +380,30 @@ def step_smoke(gw: Gateway, e: dict[str, str], st: dict[str, Any]) -> None:
     for label, ok in checks:
         say(f"smoke: {'PASS' if ok else 'FAIL'}  {label}")
     st["smoke"] = {label: ok for label, ok in checks}
+
+
+def instructions_drift(gw: Gateway) -> dict[str, str]:
+    """Managed agents whose Switch-side instructions differ from their AGENT.md (name -> agent id)."""
+    ids = {a["name"]: a["id"] for a in items(gw.req("GET", "/agents"), "agents")}
+    drift = {}
+    for name, playbook, _sub, _desc in build_templates.AGENTS:
+        d = gw.req("GET", f"/management/agents/{ids[name]}")
+        if (d.get("definition") or {}).get("instructions") != (ROOT / playbook).read_text(encoding="utf-8"):
+            drift[name] = ids[name]
+    return drift
+
+
+def step_instructions(gw: Gateway, e: dict[str, str], st: dict[str, Any]) -> None:
+    """Keep each managed agent's instructions (stored by the template at creation) equal to its AGENT.md."""
+    drift = instructions_drift(gw)
+    playbooks = {name: playbook for name, playbook, _s, _d in build_templates.AGENTS}
+    for name, agent_id in drift.items():
+        d = gw.req("GET", f"/management/agents/{agent_id}")
+        definition = {**d["definition"], "instructions": (ROOT / playbooks[name]).read_text(encoding="utf-8")}
+        gw.req("PATCH", f"/management/agents/{agent_id}", {"definition": definition})
+        say(f"instructions {name}: synced from {playbooks[name]}")
+    if not drift:
+        say("instructions: all three managed agents match their AGENT.md")
 
 
 def plan() -> None:

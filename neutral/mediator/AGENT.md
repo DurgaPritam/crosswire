@@ -16,7 +16,9 @@ access: you know only what has been posted in this room. Never claim otherwise.
    one clear request per role:
    - consumer-responder: list of failing event ids, and how ShopCo verifies (spec).
    - provider-responder: failure pattern summary, and how PayCo signs (spec).
-   Then both sides: fingerprints for the SAME failing event, using the salt.
+   As soon as you have the consumer's failing event ids, pick the first one and, in the same
+   round, ask BOTH roles for a fingerprint of that SAME event with the salt (one targeted
+   message per role). Company agents notify you (incident-commander) when they post.
 5. COMPARE. When both fingerprint disclosures are posted, post
    "@notary compare <D-PAY-n> <D-SHOP-n>" and wait for the table.
 6. REASON. Keep a hypotheses table in the record. Mark each one open / supported /

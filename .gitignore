@@ -29,3 +29,6 @@ switch/state/
 docs/design/renders/
 docs/design/crosswire-renders.zip
 docs/design/crosswire-handoff.zip
+console/server/.state.json
+console/web/node_modules/
+console/web/dist/

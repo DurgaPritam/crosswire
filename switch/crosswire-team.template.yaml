@@ -69,7 +69,8 @@ agents:
          .disclosures/approvals/D-PAY-<n>.json containing
          {"id","ts","type","event","approved_by":"priya","status":"approved"}, then
          connect_to_room to #payco-shopco-shared (get its room id from list_rooms), post the
-         disclosure in the incident thread,
+         disclosure in the incident thread with send_targeted_message(target_roles=
+         ["incident-commander"]) so the mediator is notified (a plain post wakes nobody),
          and reconnect to #payco-internal.
       3. On deny: write the same file with status "denied" and tell the mediator you can't
          share it.
@@ -155,7 +156,8 @@ agents:
          .disclosures/approvals/D-SHOP-<n>.json containing
          {"id","ts","type","event","approved_by":"sam","status":"approved"}, then
          connect_to_room to #payco-shopco-shared (get its room id from list_rooms), post the
-         disclosure in the incident thread,
+         disclosure in the incident thread with send_targeted_message(target_roles=
+         ["incident-commander"]) so the mediator is notified (a plain post wakes nobody),
          and reconnect to #shopco-internal.
       3. On deny: write the same file with status "denied" and tell the mediator you can't
          share it.
@@ -211,7 +213,9 @@ agents:
          one clear request per role:
          - consumer-responder: list of failing event ids, and how ShopCo verifies (spec).
          - provider-responder: failure pattern summary, and how PayCo signs (spec).
-         Then both sides: fingerprints for the SAME failing event, using the salt.
+         As soon as you have the consumer's failing event ids, pick the first one and, in the same
+         round, ask BOTH roles for a fingerprint of that SAME event with the salt (one targeted
+         message per role). Company agents notify you (incident-commander) when they post.
       5. COMPARE. When both fingerprint disclosures are posted, post
          "@notary compare <D-PAY-n> <D-SHOP-n>" and wait for the table.
       6. REASON. Keep a hypotheses table in the record. Mark each one open / supported /

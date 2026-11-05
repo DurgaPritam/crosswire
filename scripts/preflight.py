@@ -107,6 +107,9 @@ def main() -> int:
         print("preflight FAILED early: start the services (just up)", flush=True)
         return 1
 
+    drift = phase7.instructions_drift(gw)
+    check("agents' Switch instructions match their AGENT.md", not drift, ", ".join(drift))
+
     removed = clean_state(gw, st["rooms"][SHARED])
     left = [d["name"] for d in phase7.items(gw.req("GET", f"/rooms/{st['rooms'][SHARED]}/documents"), "documents")
             if re.match(r"^(INC-|PREFLIGHT)", d.get("name", ""))]
