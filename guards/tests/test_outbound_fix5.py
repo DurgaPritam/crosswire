@@ -65,12 +65,12 @@ def test_customer_names(root, text, hit):
 
 
 @pytest.mark.parametrize("text", [
-    "token: github_pat_11ABCDEFG0123456789_abcdefghijklmnop",
-    "use sk_live_51HabcdEFGhijkLMN",
-    "auth eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U",
-    "WEBHOOK_SECRET=s3cr3t-value-123",
-    '"api_key": "abcd1234efgh5678"',
-    "postgres://app:hunter2pass@db.internal/payments",
+    "token: github_pat_11ABCDEFG0123456789_abcdefghijklmnop",  # gitleaks:allow (fake test value)
+    "use sk_live_51HabcdEFGhijkLMN",  # gitleaks:allow (fake test value)
+    "auth eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U",  # gitleaks:allow (fake test value)
+    "WEBHOOK_SECRET=s3cr3t-value-123",  # gitleaks:allow (fake test value)
+    '"api_key": "abcd1234efgh5678"',  # gitleaks:allow (fake test value)
+    "postgres://app:hunter2pass@db.internal/payments",  # gitleaks:allow (fake test value)
 ])
 def test_secret_formats(root, text):
     assert "secret" in rules(root, text)
