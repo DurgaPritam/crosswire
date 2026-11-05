@@ -110,7 +110,7 @@ policies, tools, sessions), then a full incident played by scripted Priya and Sa
 - **Guard stats from those runs:** the disclosure guards checked 50–55 agent posts per run. Every block (3–6 per
   run) was the room rule: a draft stopped from being posted in the shared room. That includes preflight's deliberate
   test, one per company agent. 0 lines of repo code were posted.
-- **Tests:** 232 tests in 10 suites, plus the Console typecheck (`just test`), passing from a fresh clone.
+- **Tests:** 312 tests in 12 suites, plus the Console typecheck (`just test`), passing from a fresh clone.
 
 ## Security architecture
 
