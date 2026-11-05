@@ -28,6 +28,7 @@ export function reduce(all: CwEvent[], nowMs: number, mode: 'live' | 'replay', r
   let rootCauseAt: number | null = null;
   let resolvedAt: number | null = null;
   const fixes = { payco: false, shopco: false };
+  let linesShared: number | null = null;
   const firstT = events[0]?.t ?? nowMs;
   const rel = (t: number) => Math.max(0, Math.round((t - (openedAt ?? firstT)) / 1000));
 
@@ -106,6 +107,9 @@ export function reduce(all: CwEvent[], nowMs: number, mode: 'live' | 'replay', r
         if (e.status === 'resolved' && resolvedAt === null) { resolvedAt = e.t; markers.push({ t: rel(e.t), role: 'approved', label: 'resolved' }); }
         if ((status as string) !== 'resolved') status = e.status; // never step back from resolved
         break;
+      case 'scorecard':
+        linesShared = e.repo_lines_shared;
+        break;
       case 'fix_done':
         fixes[e.company] = true;
         break;
@@ -134,7 +138,7 @@ export function reduce(all: CwEvent[], nowMs: number, mode: 'live' | 'replay', r
     finale: status === 'resolved' ? {
       rootCauseMin: rootCauseAt && openedAt ? Math.max(1, Math.round((rootCauseAt - openedAt) / 60000)) : null,
       disclosures: crossed.length, approvedAll: crossed.every((c) => c.approved), pay, shop,
-      refusals: refusals.length, refusalAt: refusals[0] ? clock(refusals[0]) : null, rootCauseAt: rootCauseAt ? clock(rootCauseAt) : null, fixes,
+      refusals: refusals.length, refusalAt: refusals[0] ? clock(refusals[0]) : null, rootCauseAt: rootCauseAt ? clock(rootCauseAt) : null, fixes, linesShared,
     } : null,
     counts: { events: events.length },
   };

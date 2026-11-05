@@ -1,0 +1,121 @@
+{
+ "started": "2026-11-05T13:07:44",
+ "passed": true,
+ "checks": [
+  {
+   "check": "tools resolve without a login shell (docker, just, git, node, npm)",
+   "ok": true,
+   "detail": "uv not installed (optional)"
+  },
+  {
+   "check": "services up (payco-api, shopco-app, both evidence servers)",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "agents' Switch instructions match their AGENT.md",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "no open incident record in the shared room",
+   "ok": true,
+   "detail": "removed 1 stale incident record(s)"
+  },
+  {
+   "check": "all four roles held",
+   "ok": true,
+   "detail": "incident-commander: mediator, provider-responder: payco-agent, consumer-responder: shopco-agent, notary: Notary"
+  },
+  {
+   "check": "notary connected (answers help)",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "every agent post came from its own bot (none posted as a person)",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "no permission request from any agent",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "payco-agent wrote its approval file",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "payco-agent posted a draft in its private room",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "payco-agent hopped to the shared room and posted",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "payco-agent's guard blocked the draft in the shared room",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "payco-agent ran ./bin/test without a prompt",
+   "ok": true,
+   "detail": "5) ok: 5 passed"
+  },
+  {
+   "check": "payco-agent called its evidence tool",
+   "ok": true,
+   "detail": "2) ok: 6 results"
+  },
+  {
+   "check": "shopco-agent wrote its approval file",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "shopco-agent posted a draft in its private room",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "shopco-agent hopped to the shared room and posted",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "shopco-agent's guard blocked the draft in the shared room",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "shopco-agent ran ./bin/test without a prompt",
+   "ok": true,
+   "detail": "5) ok: 4 tests passed (repo is at the ShopCo baseline, so the INC-0001 fix is not in this checkout)"
+  },
+  {
+   "check": "shopco-agent called its evidence tool",
+   "ok": true,
+   "detail": "2) ok: 6 results"
+  },
+  {
+   "check": "mediator got a salt from the notary",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "mediator created, updated and deleted a room document",
+   "ok": true,
+   "detail": "@notary salt INC-9999 \ud83d\udcc4 created room document \u201cPREFLIGHT\u201d. \ud83d\udcc4 updated room document \u201cPREFLIGHT\u201d. \ud83d\uddd1 deleted room document \u201cPREFLIGHT\u201d. PREFLIGHT results: 1) ok, p"
+  },
+  {
+   "check": "console observer receiving events",
+   "ok": true,
+   "detail": "298 events"
+  }
+ ]
+}

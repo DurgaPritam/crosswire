@@ -209,6 +209,8 @@ class Server:
             if not NAME_RE.match(name):
                 return 400, {"error": "bad name"}
             await self.bus.reset()
+            if self.observer:  # a new run: its incident id restarts (INC-0001 again), so forget the last one
+                self.observer.incident = None
             REHEARSALS.mkdir(exist_ok=True)
             self.bus.recording = REHEARSALS / f"{name}.events.jsonl"
             self.bus.recording.write_text("")

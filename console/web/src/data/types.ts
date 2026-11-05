@@ -23,6 +23,7 @@ export type CwEvent = Base & (
   | { kind: 'status_change'; status: 'root-cause' | 'resolved' }
   | { kind: 'fix_done'; company: 'payco' | 'shopco' }
   | { kind: 'permission_request'; req: string }
+  | { kind: 'scorecard'; repo_lines_shared: number; clean: boolean }   // appended by the grader after a rehearsal
 );
 
 export type MsgKind = 'message' | 'draft' | 'disclosure' | 'refusal' | 'compare' | 'salt' | 'system';
@@ -53,6 +54,7 @@ export interface StoryData {
   refusal: { by: string; to: string; t: number } | null;   // set only while it is "recent"
   crossing: { dId: string; company: 'payco' | 'shopco'; bytes: number } | null;
   finale: { rootCauseMin: number | null; disclosures: number; approvedAll: boolean; pay: number; shop: number; refusals: number;
-            refusalAt: string | null; rootCauseAt: string | null; fixes: { payco: boolean; shopco: boolean } } | null;
+            refusalAt: string | null; rootCauseAt: string | null; fixes: { payco: boolean; shopco: boolean };
+            linesShared: number | null } | null;   // measured by the grader (null: not measured for this recording)
   counts: { events: number };
 }
