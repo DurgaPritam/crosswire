@@ -37,3 +37,13 @@ def test_token_required(pkg, monkeypatch):
     assert call(b"Bearer t0ken") == 200
     monkeypatch.delenv("EVIDENCE_TOKEN")
     assert auth.require_token(app) is app            # no token configured: unchanged (preflight fails this case)
+
+
+@pytest.mark.parametrize("pkg", ["payco-mcp/payco_evidence", "shopco-mcp/shopco_evidence"])
+def test_leakage_budget_per_salt(pkg):
+    sys.path.insert(0, str(ROOT / pkg.split("/")[0]))
+    b = importlib.import_module(pkg.split("/")[1] + ".auth").Budget(limit=2)
+    b.spend("inc-0001-aa", "evt_0001"); b.spend("inc-0001-aa", "evt_0002"); b.spend("inc-0001-aa", "evt_0001")
+    with pytest.raises(PermissionError):
+        b.spend("inc-0001-aa", "evt_0003")
+    b.spend("inc-0002-bb", "evt_0003")               # a new incident salt has its own budget

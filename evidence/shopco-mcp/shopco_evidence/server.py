@@ -9,6 +9,9 @@ from mcp.server.mcpserver import MCPServer
 from mcp.server.transport_security import TransportSecuritySettings
 
 from . import tools
+from .auth import Budget
+
+BUDGET = Budget()
 
 DB = os.environ.get("SHOPCO_DB", "/data/shopco/jobs.db")
 PORT = int(os.environ.get("PORT", "7102"))
@@ -31,7 +34,9 @@ def list_signature_failures(since_minutes: int = 1440) -> list[dict[str, Any]]:
 def get_verification_fingerprint(event_id: str, salt: str) -> dict[str, Any]:
     """wirecheck fingerprint of the exact bytes ShopCo verified the signature over, salted with the incident salt."""
     with tools.connect_ro(DB) as db:
-        return tools.get_verification_fingerprint(db, event_id, salt)
+        result = tools.get_verification_fingerprint(db, event_id, salt)
+    BUDGET.spend(salt, event_id)   # only a fingerprint that was produced counts
+    return result
 
 
 @server.tool()

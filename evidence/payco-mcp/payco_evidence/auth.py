@@ -27,3 +27,19 @@ def require_token(app):
         await app(scope, receive, send)
 
     return guarded
+
+
+class Budget:
+    """Gap 6 leakage budget: at most FINGERPRINT_BUDGET distinct events fingerprinted per salt (default 5). Asking
+    again for an event already fingerprinted under that salt is free; a new salt starts a new budget."""
+
+    def __init__(self, limit: int | None = None) -> None:
+        self.limit = limit if limit is not None else int(os.environ.get("FINGERPRINT_BUDGET", "5"))
+        self.used: dict[str, set[str]] = {}
+
+    def spend(self, salt: str, event_id: str) -> None:
+        events = self.used.setdefault(salt, set())
+        if event_id not in events and len(events) >= self.limit:
+            raise PermissionError(f"leakage budget reached: {self.limit} events already fingerprinted with this salt "
+                                  "(ask the mediator which events the incident needs)")
+        events.add(event_id)
