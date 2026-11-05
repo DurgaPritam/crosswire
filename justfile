@@ -36,6 +36,7 @@ verify-bug:
 
 # Apply reference-fixes in a temp copy; expect 60/60
 verify-fixed:
+    ./scripts/ensure-venv.sh
     ./scripts/verify-fixed.sh
 
 # Run every test suite
