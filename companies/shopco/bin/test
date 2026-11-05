@@ -1,3 +1,4 @@
 #!/bin/sh
-# ShopCo's test suite, as one allowed command for the agent (`./bin/test`).
-cd "$(dirname "$0")/../app" && exec npm test --silent
+# ShopCo's test suite, as one allowed command for the agent (`./bin/test`). node directly: npm would write logs to ~/.npm,
+# which the agent's sandbox (rightly) refuses.
+cd "$(dirname "$0")/../app" && exec node --test
