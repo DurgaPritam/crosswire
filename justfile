@@ -51,6 +51,10 @@ notary:
 notary-up:
     docker compose --profile notary up -d --build notary
 
+# Restart the approver so it re-pins the agents' controls (after setup re-renders them)
+approver-restart:
+    docker compose up -d --build approver && docker compose restart approver
+
 # One-time Notary registration (NOTARY_REGISTRATION_TOKEN = a registration key minted by `host`)
 notary-register *args:
     cd neutral/notary && ../../.venv/bin/python -m notary.register {{args}}

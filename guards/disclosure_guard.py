@@ -66,6 +66,14 @@ DRAFT_RE = re.compile(r"^\s*DRAFT\s+(D-(?:PAY|SHOP)-\d+)\s*:")
 DRAFT_WORD_RE = re.compile(r"^\s*DRAFT\b", re.I)
 
 FIX = {
+    "unsigned": "the approver has no signed approval for it (or it was denied, or the approver can't be reached). "
+                "A disclosure crosses only after the owner replies `approve D-…` to your DRAFT in your private room; "
+                "the approver records that. Wait for it, then post the approved block unchanged",
+    "changed": "its evidence (type/event/salt/JSON) differs from the draft the owner approved. Post the approved "
+               "block exactly as drafted, or post a new DRAFT and ask for approval again",
+    "prose": "a disclosure post may contain only the approved evidence block: the [D-… · approved by @…] header, "
+             "the type/event/salt lines and the JSON, plus an optional leading @mention. Put any explanation in a "
+             "separate message",
     "repo_line": "it contains a line of this repository's source code. Share evidence (fingerprints, counts, "
                  "specs in your own words), never code",
     "email": "it contains an email address. Remove it",
@@ -211,9 +219,53 @@ def check(tool: str, text: str, root: Path) -> list[str]:
     looks_like_disclosure = DISCLOSURE_HEADER_RE.search(text) or TYPE_LINE_RE.search(text)
     if looks_like_disclosure and not draft:
         ids = {m.group(1) for m in DISCLOSURE_HEADER_RE.finditer(text)} or set(D_ID_RE.findall(text))
-        if not ids or not ids <= approved_ids(root):
+        if APPROVER_URL:
+            rules += approver_problems(text, ids)
+        elif not ids or not ids <= approved_ids(root):
             rules.append("unapproved")
     return rules
+
+
+def _arg(flag: str) -> str | None:
+    args = sys.argv[1:]
+    return args[args.index(flag) + 1] if flag in args and args.index(flag) + 1 < len(args) else None
+
+
+APPROVER_URL = _arg("--approver")   # http://127.0.0.1:7400 in the rendered settings; absent = legacy approval files
+
+
+def approver_problems(text: str, ids: set[str]) -> list[str]:
+    """A disclosure crosses only with the approver's signed record, matching evidence, and no unapproved prose."""
+    import urllib.request
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import disclosure_canon as canon
+    import ed25519_verify
+    if not ids:
+        return ["unsigned"]
+    problems: list[str] = []
+    try:
+        with urllib.request.urlopen(APPROVER_URL.rstrip("/") + "/pubkey", timeout=4) as r:
+            pub = bytes.fromhex(json.loads(r.read())["ed25519"])
+    except Exception:  # noqa: BLE001  fail closed: no approver, no disclosures
+        return ["unsigned"]
+    for d_id in sorted(ids):
+        try:
+            with urllib.request.urlopen(APPROVER_URL.rstrip("/") + f"/approval/{d_id}", timeout=4) as r:
+                rec = json.loads(r.read())
+        except Exception:  # noqa: BLE001
+            problems.append("unsigned")
+            continue
+        sig = bytes.fromhex(rec.pop("sig", "") or "00")
+        payload = json.dumps(rec, sort_keys=True, separators=(",", ":")).encode()
+        if not ed25519_verify.verify(pub, payload, sig) or rec.get("status") != "approved" or rec.get("d_id") != d_id:
+            problems.append("unsigned")
+            continue
+        blk = canon.block(text, d_id)
+        if not blk or canon.digest(blk) != rec.get("sha256"):
+            problems.append("changed")
+    if canon.extra_prose(text):
+        problems.append("prose")
+    return sorted(set(problems))
 
 
 def log(root: Path, tool: str, decision: str, rules: list[str], length: int, note: str | None = None) -> None:

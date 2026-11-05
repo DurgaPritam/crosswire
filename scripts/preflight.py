@@ -144,6 +144,18 @@ def main() -> int:
           ("changed: " + ", ".join(bad[:4]) if bad else "") + (" not immutable: " + ", ".join(unlocked[:4]) if unlocked else "")
           + (": run `just setup` between runs" if bad or unlocked else ""))
 
+    try:
+        with urllib.request.urlopen("http://127.0.0.1:7400/health", timeout=4) as r:
+            ah = json.loads(r.read())
+        with urllib.request.urlopen("http://127.0.0.1:7400/pins", timeout=4) as r:
+            apins = json.loads(r.read())
+        same = all(apins.get(a, {}) == (pins.get(str((ROOT / "workspace" / a).resolve())) or {}).get("files") for a in ("payco", "shopco", "mediator"))
+        check("approver up, its own pins match the workspaces, and match the host's pins.json",
+              ah.get("ok") and ah.get("integrity") == "ok" and same,
+              f"integrity {ah.get('integrity')}; {'same' if same else 'DIFFERENT'} pins; {ah.get('approvals')} approvals")
+    except OSError as exc:
+        check("approver up, its own pins match the workspaces, and match the host's pins.json", False, f"approver unreachable ({exc})")
+
     drift = phase7.instructions_drift(gw)
     check("agents' Switch instructions match their AGENT.md", not drift,
           (", ".join(drift) + ": sync BETWEEN runs with `.venv/bin/python scripts/phase7.py instructions`, then restart "

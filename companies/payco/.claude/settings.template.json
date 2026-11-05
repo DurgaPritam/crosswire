@@ -231,7 +231,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR/hooks/disclosure_guard.py\" --pins \"{{REPO_DIR}}/switch/state/pins.json\"",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/hooks/disclosure_guard.py\" --pins \"{{REPO_DIR}}/switch/state/pins.json\" --approver http://127.0.0.1:7400",
             "timeout": 20
           }
         ]

@@ -102,8 +102,8 @@ install_guards() { # name, guards...
   mkdir -p "$WS/$name/hooks"
   for g in "$@"; do cp "$ROOT/guards/$g" "$WS/$name/hooks/$g"; done
 }
-install_guards payco path_guard.py disclosure_guard.py
-install_guards shopco path_guard.py disclosure_guard.py
+install_guards payco path_guard.py disclosure_guard.py disclosure_canon.py ed25519_verify.py
+install_guards shopco path_guard.py disclosure_guard.py disclosure_canon.py ed25519_verify.py
 install_guards mediator path_guard.py
 
 # Test environments for the agents' own test commands (gitignored inside each workspace).
@@ -139,7 +139,7 @@ python3 - "$ROOT" "$WS" <<'PY'
 import hashlib, json, sys
 from pathlib import Path
 root, ws = Path(sys.argv[1]), Path(sys.argv[2])
-CONTROLS = ("hooks/path_guard.py", "hooks/disclosure_guard.py", ".claude/settings.json", ".mcp.json", "CLAUDE.md", "AGENTS.md",
+CONTROLS = ("hooks/path_guard.py", "hooks/disclosure_guard.py", "hooks/disclosure_canon.py", "hooks/ed25519_verify.py", ".claude/settings.json", ".mcp.json", "CLAUDE.md", "AGENTS.md",
             ".disclosures/rooms.json", "bin/test", "bin/sandbox-check")
 pins = {}
 for agent in ("payco", "shopco", "mediator"):
@@ -153,7 +153,7 @@ print(f"  pinned {sum(len(v['files']) for v in pins.values())} control files -> 
 PY
 if command -v chflags >/dev/null; then
   for agent in payco shopco mediator; do
-    for rel in hooks/path_guard.py hooks/disclosure_guard.py .claude/settings.json .mcp.json CLAUDE.md AGENTS.md .disclosures/rooms.json bin/test bin/sandbox-check; do
+    for rel in hooks/path_guard.py hooks/disclosure_guard.py hooks/disclosure_canon.py hooks/ed25519_verify.py .claude/settings.json .mcp.json CLAUDE.md AGENTS.md .disclosures/rooms.json bin/test bin/sandbox-check; do
       [ -f "$WS/$agent/$rel" ] && chflags uchg "$WS/$agent/$rel"
     done
   done

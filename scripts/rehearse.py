@@ -240,6 +240,7 @@ def prepare(reset: bool) -> None:
         sh("just", "up")
         print(sh("just", "simulate").strip().splitlines()[-1])
         sh("just", "notary-up")  # rebuild + restart the notary container from the current code
+        sh("just", "approver-restart")  # the approver pins the controls `just reset` just re-rendered
     for agent in ("payco", "shopco", "mediator"):
         print(sh("scripts/restart-agent.sh", "--escalate", f"workspace/{agent}").strip().splitlines()[-1])
     # no admin writes here: agent definitions are synced by hand between runs (preflight fails on drift)
