@@ -102,8 +102,8 @@ install_guards() { # name, guards...
   mkdir -p "$WS/$name/hooks"
   for g in "$@"; do cp "$ROOT/guards/$g" "$WS/$name/hooks/$g"; done
 }
-install_guards payco path_guard.py disclosure_guard.py disclosure_canon.py ed25519_verify.py
-install_guards shopco path_guard.py disclosure_guard.py disclosure_canon.py ed25519_verify.py
+install_guards payco path_guard.py disclosure_guard.py disclosure_canon.py ed25519_verify.py ledger_chain.py
+install_guards shopco path_guard.py disclosure_guard.py disclosure_canon.py ed25519_verify.py ledger_chain.py
 install_guards mediator path_guard.py
 
 # Test environments for the agents' own test commands (gitignored inside each workspace).
@@ -129,6 +129,21 @@ print("  wrote .disclosures/rooms.json for payco and shopco (guard rule g)")
 PY
 fi
 
+# Customer name tokens for the guard's customer_name rule, as sha256 of each lower-cased ASCII name part (both
+# companies serve the same simulated customers). The names themselves never land in a workspace.
+python3 - "$ROOT" "$WS" <<'PY'
+import hashlib, json, sys
+from pathlib import Path
+sys.path.insert(0, str(Path(sys.argv[1]) / "scripts"))
+from simulate import customers
+tokens = sorted({hashlib.sha256(part.lower().encode()).hexdigest()
+                 for c in customers() for part in c["name"].split() if part.isascii() and len(part) >= 3})
+for company in ("payco", "shopco"):
+    d = Path(sys.argv[2]) / company / ".disclosures"; d.mkdir(parents=True, exist_ok=True)
+    (d / "customer-names.json").write_text(json.dumps({"tokens": tokens}))
+print(f"  wrote .disclosures/customer-names.json for payco and shopco ({len(tokens)} hashed name tokens)")
+PY
+
 render_settings payco shopco
 render_settings shopco payco
 render_settings mediator ""
@@ -139,8 +154,8 @@ python3 - "$ROOT" "$WS" <<'PY'
 import hashlib, json, sys
 from pathlib import Path
 root, ws = Path(sys.argv[1]), Path(sys.argv[2])
-CONTROLS = ("hooks/path_guard.py", "hooks/disclosure_guard.py", "hooks/disclosure_canon.py", "hooks/ed25519_verify.py", ".claude/settings.json", ".mcp.json", "CLAUDE.md", "AGENTS.md",
-            ".disclosures/rooms.json", "bin/test", "bin/sandbox-check")
+CONTROLS = ("hooks/path_guard.py", "hooks/disclosure_guard.py", "hooks/disclosure_canon.py", "hooks/ed25519_verify.py", "hooks/ledger_chain.py", ".claude/settings.json", ".mcp.json", "CLAUDE.md", "AGENTS.md",
+            ".disclosures/rooms.json", ".disclosures/customer-names.json", "bin/test", "bin/sandbox-check")
 pins = {}
 for agent in ("payco", "shopco", "mediator"):
     d = (ws / agent).resolve()
@@ -153,7 +168,7 @@ print(f"  pinned {sum(len(v['files']) for v in pins.values())} control files -> 
 PY
 if command -v chflags >/dev/null; then
   for agent in payco shopco mediator; do
-    for rel in hooks/path_guard.py hooks/disclosure_guard.py hooks/disclosure_canon.py hooks/ed25519_verify.py .claude/settings.json .mcp.json CLAUDE.md AGENTS.md .disclosures/rooms.json bin/test bin/sandbox-check; do
+    for rel in hooks/path_guard.py hooks/disclosure_guard.py hooks/disclosure_canon.py hooks/ed25519_verify.py hooks/ledger_chain.py .claude/settings.json .mcp.json CLAUDE.md AGENTS.md .disclosures/rooms.json .disclosures/customer-names.json bin/test bin/sandbox-check; do
       [ -f "$WS/$agent/$rel" ] && chflags uchg "$WS/$agent/$rel"
     done
   done

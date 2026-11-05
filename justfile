@@ -51,6 +51,10 @@ notary:
 notary-up:
     docker compose --profile notary up -d --build notary
 
+# Check the hash-chained ledgers: guard logs, the approver's signed ledger, and that every allowed disclosure was signed
+verify-ledger:
+    .venv/bin/python scripts/verify_ledger.py
+
 # Restart the approver so it re-pins the agents' controls (after setup re-renders them)
 approver-restart:
     docker compose up -d --build approver && docker compose restart approver

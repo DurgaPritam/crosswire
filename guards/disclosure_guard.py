@@ -24,7 +24,9 @@ BLOCK (exit 2, a reason on stderr that says how to fix it) when the outgoing tex
                   classified by .disclosures/rooms.json {"private": "<id>", "shared": "<id>"} (written in
                   Phase 7). Unknown room = not private, so drafts fail closed.
 
-Every decision is appended to .disclosures/guard.log.jsonl: ts, tool, decision, rule(s), length.
+Every decision is appended to .disclosures/guard.log.jsonl: ts, tool, decision, rule(s), length, and for an allowed
+disclosure the D-id and evidence digest the approver signed. The log is hash-chained (ledger_chain.py); `just
+verify-ledger` checks the chain and that every disclosure it allowed has a matching signed approval.
 Never the text itself.
 """
 
@@ -56,7 +58,23 @@ SECRET_RES = [
     re.compile(r"\bghp_[A-Za-z0-9]{20,}"),
     re.compile(r"\bxox[abprs]-[A-Za-z0-9-]{10,}"),
     re.compile(r"\bBearer\s+[A-Za-z0-9._~+/-]{20,}"),
+    re.compile(r"\bgithub_pat_[A-Za-z0-9_]{20,}"),
+    re.compile(r"\bgh[ousr]_[A-Za-z0-9]{20,}"),
+    re.compile(r"\b(?:sk|pk|rk)_(?:live|test)_[A-Za-z0-9]{8,}"),
+    re.compile(r"\beyJ[A-Za-z0-9_-]{8,}\.eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}"),          # JWT
+    re.compile(r"\bAIza[0-9A-Za-z_-]{30,}"),
+    re.compile(r"\b[a-z][a-z0-9+.-]*://[^\s:/@]+:[^\s@/]{4,}@"),                                 # URL with a password
+    # a credential assigned to a key/secret/token/password name (KEY=..., "api_key": "...", password: ...)
+    re.compile(r"(?i)\b[\w-]*(?:secret|passw(?:or)?d|api[_-]?key|access[_-]?key|auth[_-]?token|private[_-]?key)[\w-]*"
+               r"[\"']?\s*[:=]\s*[\"']?(?![\"']?\s*(?:<|\$\{|\*{3}|x{4}|redacted|none|null|\.\.\.))[^\s\"',;]{8,}"),
 ]
+CODE_TOKEN_RE = re.compile(r"\"(?:[^\"\\]|\\.)*\"|'(?:[^'\\]|\\.)*'|`[^`]*`|[A-Za-z_$][A-Za-z0-9_$]*|\d+(?:\.\d+)?"
+                           r"|===|!==|==|!=|<=|>=|=>|->|\*\*|&&|\|\||\?\?|[^\sA-Za-z0-9_$]")
+KEYWORDS = frozenset("""def class return if elif else for while in not and or is None True False import from as with try
+except finally raise lambda yield await async pass break continue global nonlocal assert del const let var function
+new this typeof instanceof null undefined true false export default require module throw catch switch case of void
+super extends static get set""".split())
+NAME_TOKEN_RE = re.compile(r"\b[A-Z][a-z]{2,}\b")
 DISCLOSURE_TYPES = ("delivery_fingerprint", "verification_fingerprint", "failure_summary", "failure_list",
                     "signing_spec", "verification_spec")
 DISCLOSURE_HEADER_RE = re.compile(r"\[(D-(?:PAY|SHOP)-\d+)\s*[·|\-:]\s*approved by @([A-Za-z0-9._-]+)\]")
@@ -77,6 +95,7 @@ FIX = {
     "repo_line": "it contains a line of this repository's source code. Share evidence (fingerprints, counts, "
                  "specs in your own words), never code",
     "email": "it contains an email address. Remove it",
+    "customer_name": "it contains a customer's name. Use event ids or customer ids, never names",
     "secret": "it contains a secret or credential. Remove it and never post secrets",
     "non_ascii": "it contains non-ASCII letters, which here means customer data. Posts must be plain ASCII; "
                  "use event ids, never names",
@@ -103,6 +122,23 @@ def norm(line: str) -> str:
     return " ".join(line.split())
 
 
+def shape(line: str) -> str | None:
+    """A code line with every identifier replaced: the same code with renamed variables or different spacing has
+    the same shape. None for lines too generic to match on (few tokens, or hardly any punctuation/literals)."""
+    toks = CODE_TOKEN_RE.findall(line)
+    if len(toks) < 8:
+        return None
+    out, ident, other = [], 0, 0
+    for tk in toks:
+        if (tk[0].isalpha() or tk[0] in "_$") and tk not in KEYWORDS:
+            out.append("§")
+            ident += 1
+        else:
+            out.append(tk)
+            other += tk not in KEYWORDS
+    return " ".join(out) if ident and other >= 4 else None
+
+
 def _git(root: Path, *args: str) -> str:
     return subprocess.run(["git", "-C", str(root), *args], capture_output=True, text=True, check=True).stdout
 
@@ -119,11 +155,13 @@ def repo_lines(root: Path) -> set[str]:
     if idx.exists():
         try:
             cached = json.loads(idx.read_text())
-            if cached.get("key") == key:
+            if cached.get("key") == key and "shapes" in cached:
+                SHAPES.update(cached["shapes"])
                 return set(cached["lines"])
         except (ValueError, KeyError):
             pass
     lines: set[str] = set()
+    shapes: set[str] = set()
     for rel in files:
         path = root / rel
         try:
@@ -132,9 +170,40 @@ def repo_lines(root: Path) -> set[str]:
             text = path.read_text(encoding="utf-8")
         except (OSError, UnicodeDecodeError):
             continue
-        lines.update(n for n in (norm(l) for l in text.splitlines()) if len(n) >= MIN_LINE)
-    idx.write_text(json.dumps({"key": key, "lines": sorted(lines)}))
+        for raw in text.splitlines():
+            n = norm(raw)
+            if len(n) >= MIN_LINE:
+                lines.add(n)
+                s = shape(n)
+                if s:
+                    shapes.add(s)
+    idx.write_text(json.dumps({"key": key, "lines": sorted(lines), "shapes": sorted(shapes)}))
+    SHAPES.update(shapes)
     return lines
+
+
+SHAPES: set[str] = set()   # filled by repo_lines()
+
+
+def customer_name_hashes(root: Path) -> set[str]:
+    """sha256 of each lower-cased ASCII customer name token (`just setup` writes them; names never sit in plain text)."""
+    try:
+        return set(json.loads((root / ".disclosures" / "customer-names.json").read_text())["tokens"])
+    except (OSError, ValueError, KeyError, TypeError):
+        return set()
+
+
+def names_customer(text: str, hashes: set[str]) -> bool:
+    """Two adjacent capitalised words that are both customer name tokens ("Alice Smith", "Smith, Alice")."""
+    if not hashes:
+        return False
+    h = lambda w: hashlib.sha256(w.lower().encode()).hexdigest()  # noqa: E731
+    words = [(m.group(0), m.end()) for m in NAME_TOKEN_RE.finditer(text)]
+    for (a, end), (b, _e) in zip(words, words[1:]):
+        gap = text[end:text.index(b, end)]
+        if len(gap) <= 3 and gap.strip(" ,") == "" and h(a) in hashes and h(b) in hashes:
+            return True
+    return False
 
 
 def approved_ids(root: Path) -> set[str]:
@@ -199,9 +268,12 @@ def check(tool: str, text: str, root: Path) -> list[str]:
         for line in text.splitlines():
             candidates = {norm(line), _strip_md(line)}
             if any(len(c) >= MIN_LINE and (c in index or any(r in c for r in index if len(r) >= MIN_LINE and len(r) <= len(c)))
-                   for c in candidates):
+                   for c in candidates) or any(shape(c) in SHAPES for c in candidates if shape(c)):
                 rules.append("repo_line")
                 break
+
+    if names_customer(text, customer_name_hashes(root)):
+        rules.append("customer_name")
 
     if EMAIL_RE.search(text):
         rules.append("email")
@@ -232,6 +304,7 @@ def _arg(flag: str) -> str | None:
 
 
 APPROVER_URL = _arg("--approver")   # http://127.0.0.1:7400 in the rendered settings; absent = legacy approval files
+VERIFIED: list[dict] = []           # disclosures the approver's signature covered in this post (logged on allow)
 
 
 def approver_problems(text: str, ids: set[str]) -> list[str]:
@@ -263,18 +336,23 @@ def approver_problems(text: str, ids: set[str]) -> list[str]:
         blk = canon.block(text, d_id)
         if not blk or canon.digest(blk) != rec.get("sha256"):
             problems.append("changed")
+        else:
+            VERIFIED.append({"d_id": d_id, "sha256": rec["sha256"], "incident": rec.get("incident")})
     if canon.extra_prose(text):
         problems.append("prose")
     return sorted(set(problems))
 
 
 def log(root: Path, tool: str, decision: str, rules: list[str], length: int, note: str | None = None) -> None:
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import ledger_chain
     entry = {"ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "tool": tool, "decision": decision,
              "rules": rules, "length": length}
     if note:
         entry["note"] = note
-    with (disclosures_dir(root) / "guard.log.jsonl").open("a", encoding="utf-8") as fh:
-        fh.write(json.dumps(entry) + "\n")
+    if decision == "allow" and VERIFIED:
+        entry["disclosures"] = VERIFIED
+    ledger_chain.append(disclosures_dir(root) / "guard.log.jsonl", entry)
 
 
 def integrity_problem(root: Path) -> str | None:

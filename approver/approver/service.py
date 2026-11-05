@@ -13,7 +13,10 @@ only while its incident is the latest one the notary issued a salt for and its s
 An approval from an earlier incident, or a draft with a made-up or rotated-out salt, is never accepted. The disclosure guard fetches the record at
 posting time (GET /approval/<d_id>), verifies the signature and compares the evidence hash with what is being posted.
 
-    GET /health   GET /pubkey   GET /approval/<d_id>   GET /pins
+Every signed decision is also appended to approvals.jsonl in the volume, hash-chained (ledger_chain.py) with the
+chain link inside the signature, and served read-only at GET /ledger for `just verify-ledger`.
+
+    GET /health   GET /pubkey   GET /approval/<d_id>   GET /pins   GET /ledger
 """
 from __future__ import annotations
 
@@ -36,12 +39,13 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import disclosure_canon as canon  # noqa: E402  (copied from guards/ at build time)
+import ledger_chain  # noqa: E402  (copied from guards/ at build time)
 
 DATA = Path(os.environ.get("APPROVER_DATA", "/data"))
 WS = Path(os.environ.get("APPROVER_WS", "/ws"))
 PORT = int(os.environ.get("APPROVER_PORT", "7400"))
-CONTROLS = ("hooks/path_guard.py", "hooks/disclosure_guard.py", "hooks/disclosure_canon.py", "hooks/ed25519_verify.py",
-            ".claude/settings.json", ".mcp.json", "CLAUDE.md", "AGENTS.md", ".disclosures/rooms.json", "bin/test", "bin/sandbox-check")
+CONTROLS = ("hooks/path_guard.py", "hooks/disclosure_guard.py", "hooks/disclosure_canon.py", "hooks/ed25519_verify.py", "hooks/ledger_chain.py",
+            ".claude/settings.json", ".mcp.json", "CLAUDE.md", "AGENTS.md", ".disclosures/rooms.json", ".disclosures/customer-names.json", "bin/test", "bin/sandbox-check")
 COMPANY = {"payco-internal": ("priya", "payco-agent", "D-PAY"), "shopco-internal": ("sam", "shopco-agent", "D-SHOP")}
 APPROVE_RE = re.compile(r"\b(approve|deny)\s+(D-(?:PAY|SHOP)-\d+)\b", re.I)
 SHARED = "payco-shopco-shared"
@@ -168,11 +172,12 @@ class Approver:
                   "incident": canon.incident_of(blk) if blk else None, "salt": salt, "sha256": canon.digest(blk) if blk else None,
                   "approver": user, "approver_user_id": approval["user_id"], "draft_post_id": draft["id"],
                   "approval_post_id": approval["id"], "approved_at": datetime.fromtimestamp(approval["create_at"] / 1000, timezone.utc).isoformat()}
-        signed = self.sign(record)
+        def finalize(e: dict) -> dict:          # the chain link (prev) is part of what is signed
+            return self.sign({k: v for k, v in e.items() if k != "sig"})
+        signed = ledger_chain.append(DATA / "approvals.jsonl", record, finalize)
+        signed = {k: v for k, v in signed.items() if k != "h"}
         with self.lock:
             self.records[d_id] = signed
-        with (DATA / "approvals.jsonl").open("a", encoding="utf-8") as fh:
-            fh.write(json.dumps(signed) + "\n")
         log(f"{record['status']} {d_id} for {record['incident']} by {user} (evidence {str(record['sha256'])[:12]}…)")
 
 
@@ -248,6 +253,9 @@ def serve(ap: Approver) -> None:
                 self._json(200, {"ed25519": ap.pub.hex()})
             elif path == "/pins":
                 self._json(200, ap.pins)
+            elif path == "/ledger":
+                f = DATA / "approvals.jsonl"
+                self._json(200, {"lines": f.read_text(encoding="utf-8").splitlines() if f.exists() else []})
             elif path.startswith("/approval/"):
                 d_id = path.rsplit("/", 1)[1].upper()
                 rec = ap.servable(d_id)          # never an approval from another incident or for a rotated-out salt
