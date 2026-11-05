@@ -1,6 +1,5 @@
 {
   "permissions": {
-    "blockReadsOutsideWorkingDirectories": true,
     "blockWritesOutsideWorkingDirectories": true,
     "deny": [
       "Edit(/{{PROJECT_DIR}}/hooks/**)",

@@ -27,7 +27,15 @@ def test_rendered_settings(agent: str) -> None:
     s = json.loads((WS / agent / ".claude" / "settings.json").read_text())
     assert "{{" not in json.dumps(s)
     deny = s["permissions"]["deny"]
-    assert s["permissions"]["blockReadsOutsideWorkingDirectories"] is True
+    # Outside reads: deny rules + path_guard for file tools, the OS sandbox for Bash. blockReadsOutsideWorkingDirectories
+    # is NOT used: with the sandbox on, it hangs Claude Code 2.1.299 at startup (bisected, see the threat model).
+    assert "blockReadsOutsideWorkingDirectories" not in s["permissions"]
+    assert s["permissions"]["blockWritesOutsideWorkingDirectories"] is True
+    sb = s["sandbox"]
+    assert sb["enabled"] and sb["failIfUnavailable"] and sb["allowUnsandboxedCommands"] is False
+    assert f"{WS}/{agent}/hooks" in sb["filesystem"]["denyWrite"] and sb["network"]["allowedDomains"] == []
+    for other in [a for a in ("payco", "shopco", "mediator") if a != agent]:
+        assert f"{WS}/{other}" in sb["filesystem"]["denyRead"], f"{agent}'s sandbox must deny reading {other}"
     for tool in ("ps", "pgrep", "lsof", "launchctl", "sysctl", "curl", "ssh"):
         assert f"Bash({tool} *)" in deny
     others = [a for a in ("payco", "shopco", "mediator") if a != agent]
