@@ -215,6 +215,14 @@ class ProcessNetworkAndMediator(unittest.TestCase):
                     "/usr/bin/curl -s https://example.com", "bash -c 'curl x'"):
             self.assertEqual(self.code(cmd), 2, cmd)
 
+    def test_command_words_only(self) -> None:
+        for cmd in ('git commit -m "top fix"', "git commit -m 'ps: tidy up'", 'echo "use lsof later"',
+                    "grep -n top notes.txt", "npm run top-level-check"):
+            self.assertEqual(self.code(cmd), 0, cmd)
+        for cmd in ("ps aux", "x | lsof", "ls; top -l 1", "true && pgrep node", "bash -c 'ps aux'",
+                    "zsh -lc \"lsof -p 1\"", "a || /usr/bin/pkill x"):
+            self.assertEqual(self.code(cmd), 2, cmd)
+
     def test_ordinary_commands_still_allowed(self) -> None:
         for cmd in ("git status", "git log --oneline", "npm test", "ls -la", "python3 -m pytest -q",
                     "grep -rn psycopg notes.txt", "cat notes.txt | wc -l"):

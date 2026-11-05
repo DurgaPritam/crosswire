@@ -226,6 +226,16 @@
   "hooks": {
     "PreToolUse": [
       {
+        "matcher": "mcp__switch__connect_to_room",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/hooks/disclosure_guard.py\" --track-room",
+            "timeout": 10
+          }
+        ]
+      },
+      {
         "matcher": "mcp__switch__post_message|mcp__switch__send_targeted_message|mcp__switch__create_room_document|mcp__switch__update_room_document",
         "hooks": [
           {
@@ -241,6 +251,17 @@
           {
             "type": "command",
             "command": "python3 \"$CLAUDE_PROJECT_DIR/hooks/path_guard.py\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/hooks/disclosure_guard.py\" --session-start",
             "timeout": 10
           }
         ]

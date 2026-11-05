@@ -74,11 +74,26 @@ def test_approved_disclosure_allowed(repo: Path) -> None:
     assert r.returncode == 0, r.stderr
 
 
-def test_draft_allowed_before_approval(repo: Path) -> None:
-    r = guard(repo, "DRAFT D-PAY-1: fingerprint of evt_0042 for the incident\n" + DISCLOSURE +
-              "\nReply `approve D-PAY-1` or `deny D-PAY-1`.")
+DRAFT = "DRAFT D-PAY-1: fingerprint of evt_0042 for the incident\n" + DISCLOSURE + "\nReply `approve D-PAY-1` or `deny D-PAY-1`."
+
+
+def rooms(root: Path, current: str | None) -> None:
+    (root / ".disclosures" / "rooms.json").write_text(json.dumps({"private": "room-internal", "shared": "room-shared"}))
+    track(root, current)
+
+
+def track(root: Path, room: str | None) -> subprocess.CompletedProcess[str]:
+    payload = {"hook_event_name": "PreToolUse", "tool_name": "mcp__switch__connect_to_room",
+               "tool_input": {"room_id": room} if room else {}}
+    return subprocess.run([sys.executable, str(GUARD), "--track-room"], input=json.dumps(payload), capture_output=True,
+                          text=True, env={**os.environ, "CLAUDE_PROJECT_DIR": str(root)}, timeout=20)
+
+
+def test_draft_allowed_in_private_room_before_approval(repo: Path) -> None:
+    rooms(repo, "room-internal")
+    r = guard(repo, DRAFT)
     assert r.returncode == 0, r.stderr
-    assert log_entries(repo)[-1]["note"] == "draft"
+    assert log_entries(repo)[-1]["note"] == "draft in private room"
 
 
 def test_targeted_message_checked_too(repo: Path) -> None:
@@ -166,3 +181,47 @@ def test_guard_runs_without_git_repo(tmp_path: Path) -> None:
     plain.mkdir()
     assert guard(plain, "hello there").returncode == 0
     blocked(guard(plain, "José"), "non_ascii")
+
+
+# ---------------------------------------------------------------- rule g: room awareness
+
+def test_g_draft_blocked_in_shared_room(repo: Path) -> None:
+    rooms(repo, "room-shared")
+    blocked(guard(repo, DRAFT), "room")
+    blocked(guard(repo, "draft: here's what I'd like to share"), "room")   # any post starting with DRAFT
+
+
+def test_g_draft_blocked_when_room_unknown(repo: Path) -> None:
+    blocked(guard(repo, DRAFT), "room")                       # no rooms.json, no current room: fail closed
+    rooms(repo, "room-somewhere-else")
+    blocked(guard(repo, DRAFT), "room")
+
+
+def test_g_session_start_forgets_the_room(repo: Path) -> None:
+    rooms(repo, "room-internal")
+    assert guard(repo, DRAFT).returncode == 0
+    subprocess.run([sys.executable, str(GUARD), "--session-start"], input="{}", text=True,
+                   env={**os.environ, "CLAUDE_PROJECT_DIR": str(repo)}, check=True)
+    blocked(guard(repo, DRAFT), "room")
+
+
+def test_g_switching_rooms_is_tracked(repo: Path) -> None:
+    rooms(repo, "room-internal")
+    assert guard(repo, DRAFT).returncode == 0
+    track(repo, "room-shared")
+    blocked(guard(repo, DRAFT), "room")
+    track(repo, None)                                          # unknown target: forget the old room
+    blocked(guard(repo, DRAFT), "room")
+
+
+def test_g_approved_disclosure_allowed_in_shared_room(repo: Path) -> None:
+    rooms(repo, "room-shared")
+    approve(repo, "D-PAY-1")
+    assert guard(repo, DISCLOSURE).returncode == 0
+    approve(repo, "D-PAY-2", status="denied")
+    blocked(guard(repo, DISCLOSURE.replace("D-PAY-1", "D-PAY-2")), "unapproved")
+
+
+def test_g_track_room_never_blocks(repo: Path) -> None:
+    assert track(repo, "room-shared").returncode == 0
+    assert (repo / ".disclosures" / "current_room").read_text() == "room-shared"

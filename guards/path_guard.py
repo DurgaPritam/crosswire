@@ -66,9 +66,12 @@ BARE_CD_RE = re.compile(r"(?:^|[;&|(]|&&|\|\|)\s*(?:cd|pushd)\s*(?:$|[;&|)])")
 # Absolute paths. ':' is not a boundary so URLs (https://host/x) are not read as paths.
 ABS_RE = re.compile(r"(?:^|[\s'\"`=(<>|;&])(/[^\s'\"`;|&<>()]*)")
 GLOB_CHARS = set("*?[")
-# A command word at a command position: start, after a separator, inside $( ) or ` `, or quoted
-# (sh -c 'ps aux'), optionally behind wrappers and with any directory prefix (/bin/ps).
-_CMD_POS = r"(?:^|[;&|(`\n'\"]|\$\()\s*(?:(?:sudo|env|command|builtin|exec|nohup|time|nice|xargs|timeout\s+\S+|[A-Za-z_][A-Za-z0-9_]*=\S*)\s+)*(?:[^\s;&|()'\"`]*/)?"
+# A COMMAND word: first word, after | ; & && || ( or a newline, inside $( ) or ` `, or the first word of
+# a shell -c string (sh -c 'ps aux'). Optionally behind wrappers/assignments and with a directory prefix
+# (/bin/ps). Quotes are NOT a boundary otherwise, so `git commit -m "top fix"` is fine.
+_CMD_POS = (r"(?:^|[;&|(`\n]|\$\(|\b(?:sh|bash|zsh|dash|ksh)\s+-[a-z]*c[a-z]*\s+['\"])\s*"
+            r"(?:(?:sudo|env|command|builtin|exec|nohup|time|nice|xargs|timeout\s+\S+|[A-Za-z_][A-Za-z0-9_]*=\S*)\s+)*"
+            r"(?:[^\s;&|()'\"`]*/)?")
 PROCESS_TOOLS = ("ps", "pgrep", "pkill", "lsof", "top", "htop", "launchctl", "sysctl")
 NETWORK_TOOLS = ("curl", "wget", "nc", "ncat", "netcat", "socat", "telnet", "ssh", "scp", "sftp", "rsync", "ftp")
 PROCESS_RE = re.compile(_CMD_POS + r"(" + "|".join(PROCESS_TOOLS) + r")(?=$|[\s;&|)'\"`])")

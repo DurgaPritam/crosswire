@@ -18,6 +18,11 @@ BLOCK (exit 2, a reason on stderr that says how to fix it) when the outgoing tex
                   A post that starts with "DRAFT D-PAY-<n>:" / "DRAFT D-SHOP-<n>:" is a draft for the
                   internal room and is allowed (logged as a draft).
   f  room_doc     uses create_room_document / update_room_document (only the mediator writes those)
+  g  room         is a DRAFT while the session is NOT in the company's private room. The current room is
+                  recorded by this script's --track-room mode (a PreToolUse hook on connect_to_room) and
+                  cleared by --session-start (a SessionStart hook), so it is never stale; room ids are
+                  classified by .disclosures/rooms.json {"private": "<id>", "shared": "<id>"} (written in
+                  Phase 7). Unknown room = not private, so drafts fail closed.
 
 Every decision is appended to .disclosures/guard.log.jsonl: ts, tool, decision, rule(s), length.
 Never the text itself.
@@ -58,6 +63,7 @@ DISCLOSURE_HEADER_RE = re.compile(r"\[(D-(?:PAY|SHOP)-\d+)\s*[·|\-:]\s*approved
 TYPE_LINE_RE = re.compile(r"^\s*type\s*:\s*(" + "|".join(DISCLOSURE_TYPES) + r")\b", re.M)
 D_ID_RE = re.compile(r"\bD-(?:PAY|SHOP)-\d+\b")
 DRAFT_RE = re.compile(r"^\s*DRAFT\s+(D-(?:PAY|SHOP)-\d+)\s*:")
+DRAFT_WORD_RE = re.compile(r"^\s*DRAFT\b", re.I)
 
 FIX = {
     "repo_line": "it contains a line of this repository's source code. Share evidence (fingerprints, counts, "
@@ -70,6 +76,8 @@ FIX = {
                   "'DRAFT D-…:' in your internal room, wait for the owner's 'approve D-…', record it in the "
                   "ledger, then post it",
     "room_doc": "company agents never create or edit room documents; only the mediator does. Ask the mediator",
+    "room": "drafts go only in your company's private room. Call connect_to_room with your internal room's id "
+            "(from list_rooms) first; never post a draft in the shared room",
 }
 
 
@@ -134,6 +142,24 @@ def approved_ids(root: Path) -> set[str]:
     return {d for d, status in latest.items() if status == "approved"}
 
 
+def current_room(root: Path) -> str | None:
+    f = root / ".disclosures" / "current_room"
+    return f.read_text().strip() or None if f.exists() else None
+
+
+def room_kind(root: Path) -> str:
+    room = current_room(root)
+    try:
+        rooms = json.loads((root / ".disclosures" / "rooms.json").read_text())
+    except (OSError, ValueError):
+        rooms = {}
+    if room and room == rooms.get("private"):
+        return "private"
+    if room and room == rooms.get("shared"):
+        return "shared"
+    return "unknown"
+
+
 def outgoing_text(tool_input: dict) -> str:
     parts = [tool_input[k] for k in TEXT_KEYS if isinstance(tool_input.get(k), str)]
     return "\n".join(parts)
@@ -168,6 +194,8 @@ def check(tool: str, text: str, root: Path) -> list[str]:
         rules.append("non_ascii")
 
     draft = DRAFT_RE.match(text)
+    if (draft or DRAFT_WORD_RE.match(text)) and room_kind(root) != "private":
+        rules.append("room")
     looks_like_disclosure = DISCLOSURE_HEADER_RE.search(text) or TYPE_LINE_RE.search(text)
     if looks_like_disclosure and not draft:
         ids = {m.group(1) for m in DISCLOSURE_HEADER_RE.finditer(text)} or set(D_ID_RE.findall(text))
@@ -188,6 +216,20 @@ def log(root: Path, tool: str, decision: str, rules: list[str], length: int, not
 def main() -> int:
     root = project_dir()
     tool = "?"
+    if "--session-start" in sys.argv[1:]:
+        (disclosures_dir(root) / "current_room").unlink(missing_ok=True)
+        return 0
+    if "--track-room" in sys.argv[1:]:
+        try:
+            room = (json.loads(sys.stdin.read()).get("tool_input") or {}).get("room_id")
+        except (ValueError, AttributeError):
+            room = None
+        f = disclosures_dir(root) / "current_room"
+        if isinstance(room, str) and room:
+            f.write_text(room)
+        else:
+            f.unlink(missing_ok=True)      # can't tell where we're going: forget where we were
+        return 0
     try:
         event = json.loads(sys.stdin.read())
         tool = str(event["tool_name"])
@@ -208,7 +250,7 @@ def main() -> int:
         print(f"disclosure_guard: blocked {tool.rsplit('__', 1)[-1]}: {reasons}. Do not try to rephrase around this.",
               file=sys.stderr)
         return 2
-    log(root, tool, "allow", [], len(text), "draft" if DRAFT_RE.match(text) else None)
+    log(root, tool, "allow", [], len(text), f"draft in {room_kind(root)} room" if DRAFT_RE.match(text) else None)
     return 0
 
 

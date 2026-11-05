@@ -106,6 +106,19 @@ if [ -f "$WS/shopco/app/package-lock.json" ] && [ ! -d "$WS/shopco/app/node_modu
   (cd "$WS/shopco/app" && npm ci --silent >/dev/null 2>&1) && echo "  installed workspace/shopco/app/node_modules (ShopCo's test deps)"
 fi
 
+# Room ids for guard rule g (written by Phase 7 automation into the gitignored switch/state/rooms.json).
+if [ -f "$ROOT/switch/state/rooms.json" ]; then
+  python3 - "$ROOT/switch/state/rooms.json" "$WS" <<'PY'
+import json, sys
+from pathlib import Path
+rooms = json.loads(Path(sys.argv[1]).read_text()); ws = Path(sys.argv[2])
+for company in ("payco", "shopco"):
+    d = ws / company / ".disclosures"; d.mkdir(parents=True, exist_ok=True)
+    (d / "rooms.json").write_text(json.dumps({"private": rooms[f"{company}-internal"], "shared": rooms["payco-shopco-shared"]}))
+print("  wrote .disclosures/rooms.json for payco and shopco (guard rule g)")
+PY
+fi
+
 render_settings payco shopco
 render_settings shopco payco
 render_settings mediator ""

@@ -56,7 +56,7 @@ flowchart LR
 
 | Guarantee | Enforced by | Strength |
 |---|---|---|
-| ShopCo can't instruct PayCo's agent (and vice versa) | Switch addressing policy (server-side; agents can't widen their own) | Hard |
+| ShopCo can't instruct PayCo's agent (and vice versa) | Switch addressing policy naming the allowed humans (Priya / Sam) and the mediator (server-side; agents can't widen their own) | Hard |
 | Company agents can't edit the incident record | Switch: only the creating agent can edit a room document | Hard |
 | Agents never see raw payloads or names | Evidence MCP servers run in Docker; private data never mounted into agent directories | Hard |
 | Agents can't read the other company's code | Deny rules for file tools (checked **before** hooks; proven by S1b) plus the `path_guard` hook for Bash (proven by S1c). **Not** the working directory: S1 showed auto mode reads outside it with no prompt. | Medium (Hard with containers, 11.7) |
@@ -77,9 +77,9 @@ flowchart LR
 
 | Agent | Working dir | Owner | Shared-room role | Runtime |
 |---|---|---|---|---|
-| `payco-agent` | `workspace/payco` | priya | `provider-responder` | Claude Code via Console |
-| `shopco-agent` | `workspace/shopco` | sam | `consumer-responder` | Claude Code via Console (Codex optional) |
-| `mediator` | `workspace/mediator` | host | `incident-commander` | Claude Code via Console |
-| `notary` | n/a | host | `notary` | custom Python, raw Switch protocol |
+| `payco-agent` | `workspace/payco` | admin (addressed by Priya) | `provider-responder` | Claude Code via Console |
+| `shopco-agent` | `workspace/shopco` | admin (addressed by Sam) | `consumer-responder` | Claude Code via Console (Codex optional) |
+| `mediator` | `workspace/mediator` | admin | `incident-commander` | Claude Code via Console |
+| `notary` | n/a | admin | `notary` | custom Python, raw Switch protocol |
 
 Rooms: `#payco-internal`, `#shopco-internal`, `#payco-shopco-shared` (linked).
