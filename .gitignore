@@ -35,3 +35,5 @@ console/web/dist/
 
 # Console design QA working output (README screenshots are copied out and compressed)
 docs/screenshots/design/
+**/path.log
+**/block.log

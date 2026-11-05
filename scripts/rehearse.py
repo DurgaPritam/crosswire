@@ -303,7 +303,7 @@ def one_run(n: int, reset: bool) -> Grade:
     g = grade(posts, driver, guard_stats)
     REHEARSALS.mkdir(exist_ok=True)
     out = REHEARSALS / f"run-{n}.md"
-    out.write_text(render(n, started, posts, g, guard_stats), encoding="utf-8")
+    out.write_text(render(n, started, posts, g, guard_stats).replace(str(Path.home()), "~"), encoding="utf-8")  # no home paths in git
     print(f"run {n}: {'CLEAN' if g.clean else 'NOT CLEAN'} -> {out.relative_to(ROOT)}")
     for label, ok, d in g.checks:
         print(f"  {'PASS' if ok else 'FAIL'}  {label}{(' (' + d + ')') if d else ''}")
