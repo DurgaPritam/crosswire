@@ -73,3 +73,23 @@ they are in the code today; nothing here is fixed yet. Severity is ranked in [Ga
 | 11 | Mediator can over-ask or mislead | T12 | **Low** | Bounded by human approval and confirmation. |
 | 12 | Console has no authentication | T15 | **Low** | Local only; read-only. |
 | 13 | One OS user for both companies | T13, T14 | **Accepted** (simulation) | Inherent to running the demo on one machine; documented in the README's limitations. |
+
+## Known limits
+
+These remain after the hardening, by decision or because the one-machine simulation can't close them.
+
+| Gap | What remains | Why it stays |
+|---|---|---|
+| 6 Public salt / leakage budget | Anyone in the shared room holds the incident salt, so a low-entropy field (a country code, a length) can still be confirmed by guessing. Each evidence server now fingerprints at most 5 distinct events per salt, and a new incident gets a new salt. | Comparing fingerprints is the product; a secret salt would need a trusted third party that both companies hash through. |
+| 9 Localhost services | Each evidence server now requires its own company's bearer token, and agents can't open sockets (OS sandbox, `WebFetch` denied, MCP config immutable). The company APIs, Mattermost and Switch still listen on localhost, and any process of the same OS user can read the tokens in `switch/state/`. | Real deployments put each company on its own machine or network; see 13. |
+| 11 Mediator over-ask | The mediator can still ask for more than an incident needs or write a misleading record. | Every disclosure needs its owner's approval, root cause needs both humans to confirm, and the notary's comparison is deterministic. |
+| 12 Console has no authentication | Anyone on the machine can open the Console and see every lane. | It listens on 127.0.0.1 only, is read-only, and exists to narrate the demo. |
+| 13 One OS user | Every agent, service and human tool runs as one user. The OS sandbox limits what each agent's shell can touch, but anything outside the sandbox (that user's other processes, Docker) can reach every workspace, the approver's key volume and both ledgers. | Inherent to the demo; real isolation needs separate machines, users or containers. |
+
+Other limits found while hardening:
+
+- **Reads outside the workspace.** `blockReadsOutsideWorkingDirectories` is not used: with the OS sandbox on, it hangs Claude Code 2.1.299 at startup (bisected). Outside reads are still blocked by the deny rules and `path_guard` for file tools, and by the sandbox's `denyRead` for Bash.
+- **What an approval binds.** The approver signs the draft's canonical evidence (D-id, type, event, salt and every JSON block, re-serialised), not its exact bytes: agents re-wrap and re-indent the block when posting (0 of 8 posts matched byte for byte, 8 of 8 matched canonically). To keep unapproved text out, a disclosure post may carry only the evidence block and leading @mentions.
+- **Who can approve.** The approver trusts Mattermost user ids. Whoever can post as Priya or Sam can approve, so their accounts are the root of trust.
+- **Ledgers.** A hash chain shows a changed, removed or reordered line, and `just verify-ledger` cross-checks the guard logs against the approver's signed ledger. Someone with Docker access could still wipe both. `just reset` deliberately starts both over.
+- **Outbound matching.** Names are caught as full or adjacent customer-name tokens; a single first or last name on its own is not, because names like Grace or Young are ordinary words. Code is caught when a line matches exactly or by shape (identifiers renamed, spacing changed); code rewritten in prose or restructured is not.
