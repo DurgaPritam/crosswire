@@ -1,0 +1,91 @@
+{
+ "started": "2026-11-05T11:40:11",
+ "passed": false,
+ "checks": [
+  {
+   "check": "services up (payco-api, shopco-app, both evidence servers)",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "no open incident record in the shared room",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "all four roles held",
+   "ok": true,
+   "detail": "incident-commander: mediator, provider-responder: payco-agent, consumer-responder: shopco-agent, notary: Notary"
+  },
+  {
+   "check": "notary connected (answers help)",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "no permission request from any agent",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "payco-agent wrote its approval file",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "payco-agent posted a draft in its private room",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "payco-agent hopped to the shared room and posted",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "payco-agent's guard blocked the draft in the shared room",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "payco-agent called its evidence tool",
+   "ok": false,
+   "detail": "DRAFT D-PAY-0: preflight check PREFLIGHT rerun results: 1) ok: approvals/D-PAY-0.json written with the Write tool 2) ok: list_failed_deliveries returned 6 resul"
+  },
+  {
+   "check": "shopco-agent wrote its approval file",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "shopco-agent posted a draft in its private room",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "shopco-agent hopped to the shared room and posted",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "shopco-agent's guard blocked the draft in the shared room",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "shopco-agent called its evidence tool",
+   "ok": false,
+   "detail": "DRAFT D-SHOP-0: preflight check PREFLIGHT results (rerun): 1) ok: D-SHOP-0.json written with the Write tool 2) ok: list_signature_failures returned 6 results 3)"
+  },
+  {
+   "check": "mediator got a salt from the notary",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "mediator created, updated and deleted a room document",
+   "ok": true,
+   "detail": "@notary salt INC-9999 \ud83d\udcc4 created room document \u201cPREFLIGHT\u201d. \ud83d\udcc4 updated room document \u201cPREFLIGHT\u201d. \ud83d\uddd1 deleted room document \u201cPREFLIGHT\u201d. PREFLIGHT results: 1) ok, p"
+  }
+ ]
+}

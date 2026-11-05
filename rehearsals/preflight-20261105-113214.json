@@ -1,0 +1,86 @@
+{
+ "started": "2026-11-05T11:32:14",
+ "passed": false,
+ "checks": [
+  {
+   "check": "no open incident record in the shared room",
+   "ok": true,
+   "detail": "removed 1 stale record(s)"
+  },
+  {
+   "check": "all four roles held",
+   "ok": true,
+   "detail": "incident-commander: mediator, provider-responder: payco-agent, consumer-responder: shopco-agent, notary: Notary"
+  },
+  {
+   "check": "notary connected (answers help)",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "no permission request from any agent",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "payco-agent wrote its approval file",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "payco-agent posted a draft in its private room",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "payco-agent hopped to the shared room and posted",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "payco-agent's guard blocked the draft in the shared room",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "payco-agent called its evidence tool",
+   "ok": true,
+   "detail": "DRAFT D-PAY-1: INC-0001 failure pattern for the shared room (mediator request 1) [D-PAY-1 \u00b7 approved by @priya] type: failure_summary event: n/a salt: inc-0001-"
+  },
+  {
+   "check": "shopco-agent wrote its approval file",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "shopco-agent posted a draft in its private room",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "shopco-agent hopped to the shared room and posted",
+   "ok": false,
+   "detail": ""
+  },
+  {
+   "check": "shopco-agent's guard blocked the draft in the shared room",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "shopco-agent called its evidence tool",
+   "ok": false,
+   "detail": "DRAFT D-SHOP-1: failing event ids since Tuesday, requested by the mediator for INC-0001 [D-SHOP-1 \u00b7 approved by @sam] type: failure_list event: n/a salt: inc-00"
+  },
+  {
+   "check": "mediator got a salt from the notary",
+   "ok": false,
+   "detail": ""
+  },
+  {
+   "check": "mediator created, updated and deleted a room document",
+   "ok": true,
+   "detail": "@notary salt INC-9999 **Queued. Waiting for the agent to start\u2026** Stops what the agent is working on now. This message stays queued. \ud83d\udcc4 created room document \u201cPR"
+  }
+ ]
+}

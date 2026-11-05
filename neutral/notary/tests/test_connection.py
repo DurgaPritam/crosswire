@@ -46,6 +46,7 @@ class FakeSwitch:
         self.posts: list[dict[str, Any]] = []
         self.ops_called: list[str] = []
         self.hold = asyncio.Event()  # streams with "HOLD" stay open until set
+        self.fail_posts = 0
 
     def handler(self, request: httpx.Request) -> httpx.Response:
         path = request.url.path
@@ -66,6 +67,9 @@ class FakeSwitch:
                                      "timestamp": i, "attachments": []}, "replies": []} for i, b in enumerate(self.context)]
                 return httpx.Response(200, json={"result": {"threads": threads, "truncated": False, "oldest_timestamp": 0}})
             if name == "post_message":
+                if self.fail_posts:
+                    self.fail_posts -= 1
+                    return httpx.Response(400, json={"detail": "Not connected to a room. Call connect_to_room first."})
                 self.posts.append(args)
                 return httpx.Response(200, json={"result": {"event_id": f"posted-{len(self.posts)}"}})
             if name == "connect_to_room":
@@ -191,11 +195,11 @@ def test_state_file_is_private(tmp_path: Path) -> None:
     assert (tmp_path / "s.json").stat().st_mode & 0o777 == 0o600
 
 
-def test_takes_the_notary_role_once(tmp_path: Path) -> None:
+def test_reasserts_the_notary_role_on_every_connection(tmp_path: Path) -> None:
     fake = FakeSwitch([[state_frame()], [state_frame()]])
     notary, _ = make(fake, tmp_path)
     run(notary.run(max_opens=2))
-    assert fake.ops_called.count("assume_role") == 1
+    assert fake.ops_called.count("assume_role") == 2  # a lease can lapse while disconnected
     assert fake.ops_called.index("connect_to_room") < fake.ops_called.index("assume_role")
 
 
@@ -217,3 +221,22 @@ def test_salt_is_random_per_incident_and_stable(tmp_path: Path) -> None:
     salts = [re.search(r"`(inc-\d{4}-[0-9a-f]{8})`", p["body"]).group(1) for p in fake.posts]
     assert salts[0] == salts[1] and salts[0].startswith("inc-0001-") and salts[2].startswith("inc-0002-")
     assert State(tmp_path / "state.json").salts["INC-0001"] == salts[0]
+
+
+def test_lost_room_binding_reconnects_and_retries_once(tmp_path: Path) -> None:
+    fake = FakeSwitch([[state_frame(), message(12, "@notary help", "m-1")]])
+    fake.fail_posts = 1
+    notary, _ = make(fake, tmp_path)
+    run(notary.run(max_opens=1))
+    assert [p["body"] for p in fake.posts] == [HELP]
+    assert fake.ops_called.count("connect_to_room") >= 2
+
+
+def test_an_unanswerable_message_does_not_loop_forever(tmp_path: Path) -> None:
+    cmd = message(12, "@notary help", "m-1")
+    fake = FakeSwitch([[state_frame(), cmd], [state_frame(), cmd]])
+    fake.fail_posts = 99
+    notary, state = make(fake, tmp_path)
+    run(notary.run(max_opens=2))
+    assert fake.posts == [] and state.cursor == 12 and "m-1" in state.handled
+    assert len(fake.opens) == 2

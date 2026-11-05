@@ -161,7 +161,10 @@ class Notary:
             self.heartbeat_interval = float(data.get("heartbeat_interval_seconds") or 2)
             self.state.save()
             connected.set()
+            if not self.rooms:  # an all-scope connection claims nothing; fall back to the rooms we belong to
+                self.rooms = await self.member_rooms()
             log(f"connected: {len(self.rooms)} room(s), cursor {self.state.cursor}, protocol {data.get('protocol')}")
+            self.role_taken = False  # a lease can lapse while we were away: re-assert it on every connection
             await self.take_role()
         elif kind == "gap":
             self.pending_gap = data
@@ -179,10 +182,27 @@ class Notary:
         elif kind in DOMAIN_EVENTS:
             seq = data.get("sequence", frame.id)
             if kind == "message" and (data.get("payload") or {}).get("addressed"):
-                await self.on_message(data["room_id"], data["payload"])
+                try:
+                    await self.on_message(data["room_id"], data["payload"])
+                except (ConnectionLost, Evicted):
+                    raise
+                except SwitchError as exc:  # never let one message poison the stream (replayed forever)
+                    log(f"could not answer {(data.get('payload') or {}).get('message_id')}: {exc}; skipping it")
+                    mid = (data.get("payload") or {}).get("message_id")
+                    if mid:
+                        self.state.handled.append(mid)
             if seq is not None:
                 self.state.cursor = max(int(seq), self.state.cursor or 0)
                 self.state.save()
+
+    async def member_rooms(self) -> list[str]:
+        try:
+            listed = await self.client.op("list_rooms") or []
+        except SwitchError as exc:
+            log(f"list_rooms failed: {exc}")
+            return []
+        rooms = listed.get("rooms", listed) if isinstance(listed, dict) else listed
+        return sorted(r.get("id") or r.get("room_id") for r in rooms if isinstance(r, dict) and (r.get("id") or r.get("room_id")))
 
     async def take_role(self) -> None:
         """Hold the room's `notary` role (one role per agent across all rooms: the first room defining it)."""
@@ -213,10 +233,17 @@ class Notary:
             log(f"already answered {message_id}; skipping")
             return
         reply = await self.respond(room_id, payload.get("body") or "")
-        if self.current_room != room_id:
+        thread = payload.get("thread_id") or message_id
+        for attempt in (1, 2):  # always (re)bind the room first: a cached binding can be gone server-side
             await self.client.op("connect_to_room", room_id=room_id, include_general_instructions=False)
             self.current_room = room_id
-        await self.client.op("post_message", body=reply, thread_id=payload.get("thread_id") or message_id)
+            try:
+                await self.client.op("post_message", body=reply, thread_id=thread)
+                break
+            except SwitchError as exc:
+                if attempt == 2 or "connect_to_room" not in str(exc):
+                    raise
+                log(f"post failed ({exc}); reconnecting to the room and retrying once")
         self.pending_gap = None
         if message_id:
             self.state.handled.append(message_id)
