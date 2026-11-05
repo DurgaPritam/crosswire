@@ -227,7 +227,7 @@ def watch(ap: Approver, mm: MM) -> None:
                 hist = mm.get(f"/channels/{cid}/posts?per_page=200") or {}
                 drafts = [q for q in (hist.get("posts") or {}).values()
                           if q["user_id"] == users[agent] and q["create_at"] < p["create_at"]
-                          and re.match(rf"\s*DRAFT {re.escape(d_id)}\b", q.get("message", "")) and canon.block(q["message"], d_id)]
+                          and re.match(rf"\s*(?:@[\w.-]+[\s,:]*)*DRAFT\s+{re.escape(d_id)}\b", q.get("message", "")) and canon.block(q["message"], d_id)]
                 draft = max(drafts, key=lambda q: q["create_at"]) if drafts else None
                 ap.on_approval(name, m.group(1).lower(), d_id, p, draft, human)
         time.sleep(2)

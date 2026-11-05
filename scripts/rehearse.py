@@ -38,7 +38,7 @@ RUN_TIMEOUT = 45 * 60
 END_QUIET = 60
 STALL = 300
 
-DRAFT_RE = re.compile(r"^\s*DRAFT\s+(D-(?:PAY|SHOP)-\d+)\s*:", re.M)
+DRAFT_RE = re.compile(r"^\s*(?:@[\w.-]+[\s,:]*)*DRAFT\s+(D-(?:PAY|SHOP)-\d+)\s*:", re.M)   # "@sam DRAFT D-…:" too
 HEADER_RE = re.compile(r"\[(D-(?:PAY|SHOP)-\d+)\s*[·|\-:]\s*approved by @(\w+)\]")
 CONFIRM_ASK_RE = re.compile(r"confirm root cause", re.I)
 FIX_ASK_RE = re.compile(r"\b(approv\w*)\b.*\b(fix|merge|branch|change)\b|\b(fix|merge|branch|change)\b.*\bapprov", re.I | re.S)

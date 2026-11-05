@@ -105,3 +105,14 @@ def test_unapproved_prose_alongside_the_block_is_blocked(root, approver):
     approve(approver)
     r = post(root, approver["url"], DRAFT_BLOCK + "\nAlso, all 60 deliveries succeeded.")
     assert r.returncode == 2 and "[prose]" in r.stderr
+
+
+def test_backticks_inside_json_strings_are_evidence_not_prose(root, approver):
+    spec = ('[D-PAY-2 · approved by @priya]\ntype: signing_spec\nevent: n/a\nsalt: inc-0001-ab12cd34\n```json\n'
+            + json.dumps({"docs_excerpt": "Sign like this:\n```python\nhmac.new(key, body, sha256)\n```\nthen hex.",
+                          "header": "X-PayCo-Signature"}, indent=2) + "\n```")
+    assert canon.extra_prose("@incident-commander " + spec) == []
+    approver["records"]["D-PAY-2"] = signed({"v": 1, "d_id": "D-PAY-2", "status": "approved", "incident": "INC-0001",
+                                             "sha256": canon.digest(spec), "approver": "priya"})
+    assert post(root, approver["url"], "@incident-commander " + spec).returncode == 0
+    assert "[prose]" in post(root, approver["url"], spec + "\nPlus a note.").stderr

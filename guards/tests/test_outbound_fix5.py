@@ -80,3 +80,9 @@ def test_secret_formats(root, text):
                                   "salt: inc-0001-ab12cd34", "password: ********"])
 def test_secret_mentions_without_values_pass(root, text):
     assert "secret" not in rules(root, text)
+
+
+@pytest.mark.parametrize("text", ["@sam DRAFT D-SHOP-1: failing ids", "@sam, @priya: DRAFT D-PAY-2: summary"])
+def test_a_draft_addressed_to_its_owner_is_still_a_draft(root, text):
+    assert g.DRAFT_RE.match(text)
+    assert "room" in rules(root, text)            # not the private room here, so the room rule applies as for any draft

@@ -80,8 +80,8 @@ DISCLOSURE_TYPES = ("delivery_fingerprint", "verification_fingerprint", "failure
 DISCLOSURE_HEADER_RE = re.compile(r"\[(D-(?:PAY|SHOP)-\d+)\s*[·|\-:]\s*approved by @([A-Za-z0-9._-]+)\]")
 TYPE_LINE_RE = re.compile(r"^\s*type\s*:\s*(" + "|".join(DISCLOSURE_TYPES) + r")\b", re.M)
 D_ID_RE = re.compile(r"\bD-(?:PAY|SHOP)-\d+\b")
-DRAFT_RE = re.compile(r"^\s*DRAFT\s+(D-(?:PAY|SHOP)-\d+)\s*:")
-DRAFT_WORD_RE = re.compile(r"^\s*DRAFT\b", re.I)
+DRAFT_RE = re.compile(r"^\s*(?:@[\w.-]+[\s,:]*)*DRAFT\s+(D-(?:PAY|SHOP)-\d+)\s*:")   # leading @mentions allowed
+DRAFT_WORD_RE = re.compile(r"^\s*(?:@[\w.-]+[\s,:]*)*DRAFT\b", re.I)
 
 FIX = {
     "unsigned": "the approver has no signed approval for it (or it was denied, or the approver can't be reached). "
