@@ -233,7 +233,7 @@ def sh(*cmd: str) -> str:
 
 def prepare(reset: bool) -> None:
     for agent in ("payco", "shopco", "mediator"):  # before the reset deletes their working directories
-        sh("scripts/restart-agent.sh", f"workspace/{agent}")
+        sh("scripts/restart-agent.sh", "--escalate", f"workspace/{agent}")
     if reset:
         print("reset: just reset && just up && just simulate")
         sh("just", "reset")
@@ -241,7 +241,7 @@ def prepare(reset: bool) -> None:
         print(sh("just", "simulate").strip().splitlines()[-1])
         sh("just", "notary-up")  # rebuild + restart the notary container from the current code
     for agent in ("payco", "shopco", "mediator"):
-        print(sh("scripts/restart-agent.sh", f"workspace/{agent}").strip().splitlines()[-1])
+        print(sh("scripts/restart-agent.sh", "--escalate", f"workspace/{agent}").strip().splitlines()[-1])
     # no admin writes here: agent definitions are synced by hand between runs (preflight fails on drift)
     r = subprocess.run([sys.executable, str(ROOT / "scripts/preflight.py")], cwd=ROOT, text=True)
     if r.returncode != 0:
