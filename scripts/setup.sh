@@ -140,7 +140,7 @@ import hashlib, json, sys
 from pathlib import Path
 root, ws = Path(sys.argv[1]), Path(sys.argv[2])
 CONTROLS = ("hooks/path_guard.py", "hooks/disclosure_guard.py", ".claude/settings.json", ".mcp.json", "CLAUDE.md", "AGENTS.md",
-            ".disclosures/rooms.json")
+            ".disclosures/rooms.json", "bin/test", "bin/sandbox-check")
 pins = {}
 for agent in ("payco", "shopco", "mediator"):
     d = (ws / agent).resolve()
@@ -153,7 +153,7 @@ print(f"  pinned {sum(len(v['files']) for v in pins.values())} control files -> 
 PY
 if command -v chflags >/dev/null; then
   for agent in payco shopco mediator; do
-    for rel in hooks/path_guard.py hooks/disclosure_guard.py .claude/settings.json .mcp.json CLAUDE.md AGENTS.md .disclosures/rooms.json; do
+    for rel in hooks/path_guard.py hooks/disclosure_guard.py .claude/settings.json .mcp.json CLAUDE.md AGENTS.md .disclosures/rooms.json bin/test bin/sandbox-check; do
       [ -f "$WS/$agent/$rel" ] && chflags uchg "$WS/$agent/$rel"
     done
   done

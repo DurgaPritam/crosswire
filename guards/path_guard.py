@@ -225,7 +225,7 @@ def check_protected_write(tool_input: dict, cwd: str, root: str) -> None:
     rel = os.path.relpath(resolve(raw, cwd), root)
     if rel.startswith(WRITABLE_EXCEPTIONS) and not os.path.islink(resolve(raw, cwd)):
         return
-    if any(rel == p or rel.startswith(p + "/") for p in PROTECTED):
+    if any(rel == p or rel.startswith(p + "/") for p in PROTECTED + ("bin",)):
         raise Blocked(f"{rel} is one of this agent's own controls: it can be read, not changed")
 
 

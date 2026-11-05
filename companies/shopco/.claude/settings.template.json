@@ -193,6 +193,7 @@
       "WebSearch"
     ],
     "allow": [
+      "Bash(./bin/sandbox-check)",
       "Bash(./bin/test *)",
       "Bash(./bin/test)",
       "Bash(git status*)",
@@ -272,7 +273,8 @@
         "{{PROJECT_DIR}}/.disclosures",
         "{{PROJECT_DIR}}/.switch",
         "{{PROJECT_DIR}}/CLAUDE.md",
-        "{{PROJECT_DIR}}/AGENTS.md"
+        "{{PROJECT_DIR}}/AGENTS.md",
+        "{{PROJECT_DIR}}/bin"
       ],
       "denyRead": [
         "{{PAYCO_DIR}}",
