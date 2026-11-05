@@ -190,7 +190,15 @@
       "Bash(git push *)",
       "Bash(git remote *)",
       "WebFetch",
-      "WebSearch"
+      "WebSearch",
+      "Read(/{{REPO_DIR}}/console)",
+      "Edit(/{{REPO_DIR}}/console)",
+      "Read(/{{REPO_DIR}}/console/**)",
+      "Edit(/{{REPO_DIR}}/console/**)",
+      "Read(/{{REPO_DIR}}/approver)",
+      "Edit(/{{REPO_DIR}}/approver)",
+      "Read(/{{REPO_DIR}}/approver/**)",
+      "Edit(/{{REPO_DIR}}/approver/**)"
     ],
     "allow": []
   },

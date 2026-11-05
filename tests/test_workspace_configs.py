@@ -42,6 +42,7 @@ def test_rendered_settings(agent: str) -> None:
     for other in others:
         assert f"Read(/{WS}/{other}/**)" in deny, f"{agent} must deny reading {other}"
     assert f"Read(/{ROOT}/docs/**)" in deny and f"Read(/{ROOT}/reference-fixes/**)" in deny
+    assert f"Read(/{ROOT}/console/**)" in deny and f"Read(/{ROOT}/approver/**)" in deny   # gap 10
     commands = [h["command"] for g in s["hooks"]["PreToolUse"] for h in g["hooks"]]
     assert any("path_guard.py" in c for c in commands)
     assert any("disclosure_guard.py" in c for c in commands) == (agent != "mediator")
