@@ -7,7 +7,10 @@ one it finds the latest draft that company's agent posted in that channel and si
 
     {d_id, incident, sha256 of the draft's canonical evidence, approver, approver_user_id, draft/approval post ids, time}
 
-It refuses to sign while any workspace control differs from its pins. The disclosure guard fetches the record at
+It refuses to sign while any workspace control differs from its pins, and binds every approval to the CURRENT incident:
+it also watches the shared room for the notary's `Salt for INC-nnnn: ...` replies, and signs (and later serves) a record
+only while its incident is the latest one the notary issued a salt for and its salt is the one the notary issued for it.
+An approval from an earlier incident, or a draft with a made-up or rotated-out salt, is never accepted. The disclosure guard fetches the record at
 posting time (GET /approval/<d_id>), verifies the signature and compares the evidence hash with what is being posted.
 
     GET /health   GET /pubkey   GET /approval/<d_id>   GET /pins
@@ -41,6 +44,8 @@ CONTROLS = ("hooks/path_guard.py", "hooks/disclosure_guard.py", "hooks/disclosur
             ".claude/settings.json", ".mcp.json", "CLAUDE.md", "AGENTS.md", ".disclosures/rooms.json", "bin/test", "bin/sandbox-check")
 COMPANY = {"payco-internal": ("priya", "payco-agent", "D-PAY"), "shopco-internal": ("sam", "shopco-agent", "D-SHOP")}
 APPROVE_RE = re.compile(r"\b(approve|deny)\s+(D-(?:PAY|SHOP)-\d+)\b", re.I)
+SHARED = "payco-shopco-shared"
+SALT_POST_RE = re.compile(r"Salt for (INC-\d{4}):\s*`([^`\s]+)`")
 
 
 def log(msg: str) -> None:
@@ -102,6 +107,8 @@ class Approver:
         self.pins = workspace_hashes()
         self.records: dict[str, dict] = {}
         self.refusals: list[dict] = []
+        self.current: str | None = None          # the incident the notary most recently issued a salt for
+        self.issued: dict[str, str] = {}         # incident -> the salt the notary issued for it (latest)
         self.lock = threading.Lock()
         log(f"pinned {sum(len(v) for v in self.pins.values())} control files across {len(self.pins)} workspaces")
 
@@ -111,6 +118,29 @@ class Approver:
             for rel, digest in files.items():
                 if now.get(agent, {}).get(rel) != digest:
                     return f"{agent}/{rel} differs from the approver's pins"
+        return None
+
+    def on_salt(self, incident: str, salt: str) -> None:
+        with self.lock:
+            changed = (self.current, self.issued.get(incident)) != (incident, salt)
+            self.issued[incident], self.current = salt, incident
+        if changed:
+            log(f"current incident {incident} (salt issued by the notary)")
+
+    def binding_problem(self, incident: str | None, salt: str | None) -> str | None:
+        """None if (incident, salt) is the current incident and the salt the notary issued for it."""
+        if self.current is None:
+            return "no incident salt issued by the notary yet"
+        if incident != self.current:
+            return f"incident {incident} is not the current incident {self.current}"
+        if salt != self.issued.get(incident):
+            return f"salt {salt} was not issued by the notary for {incident}"
+        return None
+
+    def servable(self, d_id: str) -> dict | None:
+        rec = self.records.get(d_id)
+        if rec and self.binding_problem(rec.get("incident"), rec.get("salt")) is None:
+            return rec
         return None
 
     def sign(self, record: dict) -> dict:
@@ -128,8 +158,14 @@ class Approver:
             log(f"refused to sign {d_id}: no draft found")
             return
         blk = canon.block(draft["message"], d_id)
+        salt = canon.canonical(blk).get("salt") if blk else None
+        stale = self.binding_problem(canon.incident_of(blk) if blk else None, salt)
+        if stale:
+            self.refusals.append({"d_id": d_id, "reason": stale, "at": approval["create_at"]})
+            log(f"refused to sign {d_id}: {stale}")
+            return
         record = {"v": 1, "d_id": d_id, "status": "approved" if decision == "approve" else "denied",
-                  "incident": canon.incident_of(blk) if blk else None, "sha256": canon.digest(blk) if blk else None,
+                  "incident": canon.incident_of(blk) if blk else None, "salt": salt, "sha256": canon.digest(blk) if blk else None,
                   "approver": user, "approver_user_id": approval["user_id"], "draft_post_id": draft["id"],
                   "approval_post_id": approval["id"], "approved_at": datetime.fromtimestamp(approval["create_at"] / 1000, timezone.utc).isoformat()}
         signed = self.sign(record)
@@ -142,12 +178,30 @@ class Approver:
 
 def watch(ap: Approver, mm: MM) -> None:
     team = mm.get("/users/me/teams")[0]["id"]
-    users = {n: mm.get(f"/users/username/{n}")["id"] for n in ("priya", "sam", "payco-agent", "shopco-agent")}
+    users = {n: mm.get(f"/users/username/{n}")["id"] for n in ("priya", "sam", "payco-agent", "shopco-agent", "notary")}
     chans = {name: mm.get(f"/teams/{team}/channels/name/{name}")["id"] for name in COMPANY}
+    shared = mm.get(f"/teams/{team}/channels/name/{SHARED}")["id"]
     since = {c: int(time.time() * 1000) for c in chans.values()}
     seen: set[str] = set()
-    log(f"watching {', '.join(chans)} for approvals from priya and sam")
+
+    def salts(posts: list[dict]) -> None:   # only the notary's own account can name the current incident
+        for p in sorted(posts, key=lambda q: q["create_at"]):
+            m = SALT_POST_RE.search(p.get("message", ""))
+            if m and p["user_id"] == users["notary"]:
+                ap.on_salt(m.group(1).upper(), m.group(2))
+
+    hist = mm.get(f"/channels/{shared}/posts?per_page=200") or {}     # recover the current incident after a restart
+    salts(list((hist.get("posts") or {}).values()))
+    shared_since = max([p["create_at"] for p in (hist.get("posts") or {}).values()] or [int(time.time() * 1000)])
+    log(f"watching {', '.join(chans)} for approvals from priya and sam; {SHARED} for the notary's incident salts")
     while True:
+        try:
+            data = mm.get(f"/channels/{shared}/posts?since={shared_since - 1}&collapsedThreads=false") or {}
+            posts = list((data.get("posts") or {}).values())
+            salts(posts)
+            shared_since = max([shared_since] + [p["create_at"] for p in posts])
+        except (urllib.error.URLError, OSError) as exc:
+            log(f"mattermost: {exc}")
         for name, cid in chans.items():
             human, agent, prefix = COMPANY[name]
             try:
@@ -188,14 +242,17 @@ def serve(ap: Approver) -> None:
             path = self.path.split("?")[0]
             if path == "/health":
                 self._json(200, {"ok": True, "pins": sum(len(v) for v in ap.pins.values()), "approvals": len(ap.records),
-                                 "integrity": ap.integrity_problem() or "ok", "refusals": len(ap.refusals)})
+                                 "integrity": ap.integrity_problem() or "ok", "refusals": len(ap.refusals),
+                                 "incident": ap.current})
             elif path == "/pubkey":
                 self._json(200, {"ed25519": ap.pub.hex()})
             elif path == "/pins":
                 self._json(200, ap.pins)
             elif path.startswith("/approval/"):
-                rec = ap.records.get(path.rsplit("/", 1)[1].upper())
-                self._json(200 if rec else 404, rec or {"error": "no signed approval for that id"})
+                d_id = path.rsplit("/", 1)[1].upper()
+                rec = ap.servable(d_id)          # never an approval from another incident or for a rotated-out salt
+                self._json(200 if rec else 404, rec or {"error": "no signed approval for that id in the current incident"
+                                                        if d_id in ap.records else "no signed approval for that id"})
             else:
                 self._json(404, {"error": "not found"})
 

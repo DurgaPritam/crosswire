@@ -26,6 +26,7 @@ suite_if "payco api"        companies/payco/api/tests         $PY -m pytest -q c
 suite_if "shopco app"       companies/shopco/app/test         bash -c 'cd companies/shopco/app && npm test --silent'
 suite_if "evidence servers" evidence/tests                    $PY -m pytest -q evidence/tests
 suite_if "notary"           neutral/notary/tests              $PY -m pytest -q neutral/notary/tests
+suite_if "approver"         approver/tests                    $PY -m pytest -q approver/tests
 suite_if "guards (path, disclosure)" guards/tests                $PY -m pytest -q guards/tests
 suite_if "console server (normalize)" console/server/tests     bash -c 'cd console/server && ../../.venv/bin/python -m pytest -q tests'
 suite_if "console web (typecheck)" console/web/node_modules      bash -c 'cd console/web && npx tsc --noEmit -p .'
