@@ -50,7 +50,7 @@ def test_cli_writes_file(tmp_path: Path) -> None:
 def test_committed_templates_render(tmp_path: Path) -> None:
     """Every committed settings.template.json renders with setup.sh's placeholder set."""
     values = {k: f"/machine/{k.lower()}" for k in
-              ("PROJECT_DIR", "OTHER_COMPANY_DIR", "PAYCO_DIR", "SHOPCO_DIR", "MEDIATOR_DIR", "WORKSPACE_DIR", "REPO_DIR", "HOME")}
+              ("PROJECT_DIR", "OTHER_COMPANY_DIR", "PAYCO_DIR", "SHOPCO_DIR", "MEDIATOR_DIR", "WORKSPACE_DIR", "REPO_DIR", "HOME", "SPIKES_DIR")}  # SPIKES_DIR: spikes/render-settings.sh
     for tpl in ROOT.glob("*/*/.claude/settings.template.json"):
         text = tpl.read_text()
         assert "/Users/" not in text and "/home/" not in text, f"{tpl} contains an absolute home path"

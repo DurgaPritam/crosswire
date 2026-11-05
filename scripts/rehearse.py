@@ -26,6 +26,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 import mmlib  # noqa: E402
+import toolpath  # noqa: E402
 import simulate  # noqa: E402
 
 REHEARSALS = ROOT / "rehearsals"
@@ -167,7 +168,8 @@ def grade(posts: list[tuple[str, mmlib.Post]], driver: Driver, guard_stats: dict
 
 
 def sh(*cmd: str) -> str:
-    r = subprocess.run(list(cmd), cwd=ROOT, capture_output=True, text=True)
+    """Run a tool with a PATH that finds docker/just/... even outside a login shell (scripts/toolpath.py)."""
+    r = subprocess.run(list(cmd), cwd=ROOT, capture_output=True, text=True, env=toolpath.tool_env())
     if r.returncode != 0:
         raise RuntimeError(f"{' '.join(cmd)} failed: {(r.stderr or r.stdout)[-500:]}")
     return r.stdout
@@ -267,7 +269,9 @@ def one_run(n: int, reset: bool) -> Grade:
         for name, cid in channels.items():
             client = reader if name != SHOP_IN else humans["sam"]
             for p in client.posts_since(cid, since - 1):
-                if p.id in ours:
+                # posts_since also returns OLD posts edited later (Console edits an expired permission request), so
+                # anything created before this run's opening message belongs to an earlier run: ignore it
+                if p.id in ours or p.create_at < since:
                     continue
                 prev = seen.get(p.id)
                 if prev and prev[1].message == p.message:
@@ -321,6 +325,10 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--preflight-only", action="store_true", help="prepare exactly as a run does (reset, restart, preflight), then stop")
     ap.add_argument("--runs", type=int, default=1, help="stop after this many clean runs in a row (or the first unclean one)")
     args = ap.parse_args(argv)
+    try:
+        toolpath.require()  # fail before touching anything if docker/just/git/node/npm can't be found
+    except toolpath.ToolMissing as exc:
+        raise SystemExit(f"rehearse: {exc}") from None
     take_lock()
     if args.preflight_only:
         prepare(reset=not args.no_reset)

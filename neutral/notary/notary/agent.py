@@ -48,13 +48,15 @@ class State:
         self.cursor: int | None = data.get("cursor")
         self.handled: list[str] = list(data.get("handled", []))
         self.salts: dict[str, str] = dict(data.get("salts", {}))
+        self.salt_threads: dict[str, str] = dict(data.get("salt_threads", {}))  # incident -> thread it was issued in
         if not path.exists():
             self.save()
 
     def save(self) -> None:
         tmp = self.path.with_suffix(".tmp")
         tmp.write_text(json.dumps({"connection_id": self.connection_id, "cursor": self.cursor,
-                                   "handled": self.handled[-HANDLED_CAP:], "salts": self.salts}))
+                                   "handled": self.handled[-HANDLED_CAP:], "salts": self.salts,
+                                   "salt_threads": self.salt_threads}))
         os.chmod(tmp, 0o600)
         tmp.replace(self.path)
 
@@ -233,7 +235,7 @@ class Notary:
             log(f"already answered {message_id}; skipping")
             return
         thread = payload.get("thread_id") or message_id
-        reply = await self.respond(room_id, payload.get("body") or "", thread)
+        reply = await self.respond(room_id, payload.get("body") or "", thread, payload.get("thread_id"))
         for attempt in (1, 2):  # always (re)bind the room first: a cached binding can be gone server-side
             await self.client.op("connect_to_room", room_id=room_id, include_general_instructions=False)
             self.current_room = room_id
@@ -249,19 +251,28 @@ class Notary:
             self.state.handled.append(message_id)
             self.state.save()
 
-    async def respond(self, room_id: str, body: str, thread: str | None = None) -> str:
+    async def respond(self, room_id: str, body: str, thread: str | None = None, in_thread: str | None = None) -> str:
         m = COMPARE.search(body)
         if m:
             return await self.compare(room_id, m.group(1).upper(), m.group(2).upper(), thread)
         s = SALT_RE.search(body)
         if s:
-            return self.salt(s.group(1).upper())
+            return self.salt(s.group(1).upper(), in_thread)
         if HELP_RE.search(body):
             return HELP
         return UNKNOWN
 
-    def salt(self, incident: str) -> str:
-        """The incident salt: random (secrets), made once per incident and repeated if asked again."""
+    def salt(self, incident: str, thread: str | None = None) -> str:
+        """The incident salt: random (secrets), made once per incident and repeated if asked again.
+
+        Incident ids restart (a new deployment, a rehearsal reset), so a request from a DIFFERENT incident thread for a
+        known id gets a fresh salt: fingerprints must never be comparable across two incidents.
+        """
+        old_thread = self.state.salt_threads.get(incident)
+        if incident in self.state.salts and thread and old_thread and old_thread != thread:
+            del self.state.salts[incident]
+        if thread:
+            self.state.salt_threads[incident] = thread
         if incident not in self.state.salts:
             self.state.salts[incident] = f"{incident.lower()}-{secrets.token_hex(4)}"
             self.state.save()

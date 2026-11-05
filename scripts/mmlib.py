@@ -60,6 +60,7 @@ class Post:
     create_at: int
     edited: bool
     deleted: bool
+    from_bot: bool = False   # Mattermost props.from_bot: posted by a bot account (agents), not a person
 
     @property
     def label(self) -> str:
@@ -160,7 +161,8 @@ class Mattermost:
             props = raw.get("props") or {}
             out.append(Post(raw["id"], raw["channel_id"], raw["user_id"], self.username(raw["user_id"]),
                             str(props.get("override_username") or ""), raw.get("message", ""), raw.get("root_id", ""),
-                            raw["create_at"], bool(raw.get("edit_at")), bool(raw.get("delete_at"))))
+                            raw["create_at"], bool(raw.get("edit_at")), bool(raw.get("delete_at")),
+                            str(props.get("from_bot", "")).lower() == "true"))
         return sorted(out, key=lambda p: p.create_at)
 
     def wait(self, channel_ids: list[str], since_ms: int, done: Callable[[list[Post]], bool], timeout: float = 180,

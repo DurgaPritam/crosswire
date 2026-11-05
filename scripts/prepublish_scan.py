@@ -36,12 +36,15 @@ TRANSCRIPT = re.compile(r"^(rehearsals/|spikes/.*\.(md|log|txt|jsonl)$|console/f
 CANARIES = re.compile(r"CANARY[-_][A-Z0-9-]{4,}|BLOCKME-[A-Z0-9]{4,}")
 
 
+REPO = ROOT  # the repository scanned (--repo); secrets always come from this checkout's .env
+
+
 def git(*args: str) -> str:
-    return subprocess.run(["git", *args], cwd=ROOT, capture_output=True, text=True, check=True).stdout
+    return subprocess.run(["git", *args], cwd=REPO, capture_output=True, text=True, check=True).stdout
 
 
 def blob(sha: str) -> str:
-    return subprocess.run(["git", "cat-file", "blob", sha], cwd=ROOT, capture_output=True).stdout.decode("utf-8", "replace")
+    return subprocess.run(["git", "cat-file", "blob", sha], cwd=REPO, capture_output=True).stdout.decode("utf-8", "replace")
 
 
 def secret_values() -> dict[str, str]:
@@ -78,8 +81,11 @@ def scan_text(text: str, secrets_: dict[str, str], names: set[str], home: str, u
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--ref", default="HEAD")
+    ap.add_argument("--repo", default=str(ROOT), help="repository to scan (default: this checkout)")
     ap.add_argument("--out", default=str(ROOT / "docs/reviews/prepublish-scan.md"))
     args = ap.parse_args()
+    global REPO
+    REPO = Path(args.repo).resolve()
     secrets_, names, home, user = secret_values(), customer_names(), str(Path.home()), getpass.getuser()
 
     tree: dict[str, Counter] = {}
@@ -106,11 +112,14 @@ def main() -> int:
             hist.update(hits)
             hist_files.add(path)
 
+    msgs = git("log", "--all", "--format=%B")
+    msg_hits = scan_text(msgs, secrets_, names, home, user)
+
     leaks = None
     if shutil.which("gitleaks"):
         rep = ROOT / ".tmp/gitleaks.json"
         rep.parent.mkdir(exist_ok=True)
-        subprocess.run(["gitleaks", "detect", "--source", str(ROOT), "--redact", "--no-banner", "-f", "json", "-r", str(rep)],
+        subprocess.run(["gitleaks", "detect", "--source", str(REPO), "--redact", "--no-banner", "-f", "json", "-r", str(rep)],
                        capture_output=True, text=True)
         findings = json.loads(rep.read_text() or "[]") if rep.exists() else []
         leaks = Counter(f.get("RuleID", "?") for f in findings)
@@ -130,11 +139,12 @@ def main() -> int:
     lines += [f"- {k}: {v}" for k, v in hist.most_common()] or ["- none"]
     if hist_files:
         lines += ["", f"Paths involved in history: {len(hist_files)} (" + ", ".join(sorted(hist_files)[:15]) + (" …" if len(hist_files) > 15 else "") + ")"]
+    lines += ["", "## Commit messages (all refs)", ""] + ([f"- {k}: {v}" for k, v in msg_hits.items()] or ["- none"])
     lines += ["", "## gitleaks (history, redacted)", ""]
     lines += (["- not installed"] if leaks is None else [f"- {k}: {v}" for k, v in leaks.most_common()] or ["- no findings"])
     Path(args.out).write_text("\n".join(lines) + "\n", encoding="utf-8")
     print("\n".join(lines))
-    return 1 if tree else 0
+    return 1 if (tree or hist or msg_hits or leaks) else 0
 
 
 if __name__ == "__main__":

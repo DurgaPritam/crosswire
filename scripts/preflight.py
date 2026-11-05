@@ -30,6 +30,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 import mmlib  # noqa: E402
 import phase7  # noqa: E402
+import toolpath  # noqa: E402
 
 SHARED, PAY_IN, SHOP_IN = "payco-shopco-shared", "payco-internal", "shopco-internal"
 ROLES = ("incident-commander", "provider-responder", "consumer-responder", "notary")
@@ -97,6 +98,11 @@ def main() -> int:
     check = Check()
     print("preflight:", flush=True)
 
+    tools = toolpath.resolve()
+    missing = [n for n in toolpath.REQUIRED if not tools[n]]
+    check("tools resolve without a login shell (docker, just, git, node, npm)", not missing,
+          "missing: " + ", ".join(missing) if missing else "uv " + ("found" if tools["uv"] else "not installed (optional)"))
+
     import socket
     down = []
     for name, port in (("payco-api", 7001), ("shopco-app", 7002), ("payco-evidence", 7101), ("shopco-evidence", 7102)):
@@ -158,6 +164,11 @@ def main() -> int:
     posts_by_room = {n: [p for (rn, p) in seen.values() if rn == n] for n in chans}
     allp = [p for _, p in seen.values()]
 
+    # every agent post must come from that agent's own bot. In run 4 the bridge posted some agent messages through the
+    # operator's account ("admin"), which the driver and the grader can't attribute: catch it before a run starts
+    impostor = [f"#{n} {_short(p.message)}" for n, ps in posts_by_room.items() for p in mmlib.real(ps)
+                if not p.from_bot and p.username not in ("priya", "sam")]
+    check("every agent post came from its own bot (none posted as a person)", not impostor, "; ".join(impostor[:3]))
     perms = [f"{p.label} in #{n}" for n, ps in posts_by_room.items() for p in ps if "permission needed" in p.message.lower()]
     check("no permission request from any agent", not perms, "; ".join(perms))
     for agent, room, p in (("payco-agent", PAY_IN, "D-PAY"), ("shopco-agent", SHOP_IN, "D-SHOP")):

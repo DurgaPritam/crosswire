@@ -23,8 +23,9 @@ from typing import Any
 from urllib.parse import parse_qs, urlparse
 
 from .sources import ROOT, Observer, Tailer, fetch_record, log
+import toolpath  # noqa: E402  (scripts/, on sys.path via .sources)
 
-WEB = ROOT / "console/web/dist"
+WEB = Path(os.environ.get("CONSOLE_WEB_DIR") or ROOT / "console/web/dist")  # CONSOLE_WEB_DIR: serve a snapshot build
 FIXTURES = ROOT / "console/fixtures"
 REHEARSALS = ROOT / "rehearsals"
 LOCK = ROOT / ".tmp/rehearsal.lock"
@@ -82,11 +83,15 @@ class Runner:
     def start(self) -> dict[str, Any]:
         if self.busy():
             return {"ok": False, "error": "a rehearsal is already running"}
+        try:  # the console server isn't a login shell: resolve docker/just/... the same way rehearse.py does
+            toolpath.require()
+        except toolpath.ToolMissing as exc:
+            return {"ok": False, "error": str(exc)}
         self.log.parent.mkdir(exist_ok=True)
         fh = self.log.open("w")
         self.proc = subprocess.Popen([str(ROOT / ".venv/bin/python"), str(ROOT / "scripts/rehearse.py"), "--runs", "1"],
                                      cwd=ROOT, stdout=fh, stderr=subprocess.STDOUT, text=True,
-                                     env={**os.environ, "PYTHONUNBUFFERED": "1"})
+                                     env={**toolpath.tool_env(), "PYTHONUNBUFFERED": "1"})
         self.started = time.time()
         return {"ok": True, "pid": self.proc.pid}
 
@@ -209,6 +214,10 @@ class Server:
             name = self.bus.recording.name if self.bus.recording else None
             self.bus.recording = None
             return 200, {"stopped": name}
+        if path == "/api/tools":  # what the Run button's subprocess will find (no login shell)
+            found = toolpath.resolve()
+            return 200, {"ok": all(found[n] for n in toolpath.REQUIRED), "required": list(toolpath.REQUIRED),
+                         "found": {n: bool(v) for n, v in found.items()}}
         if path == "/api/run":
             if method == "POST":
                 if not self.config()["switch_configured"]:

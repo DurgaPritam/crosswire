@@ -240,3 +240,15 @@ def test_an_unanswerable_message_does_not_loop_forever(tmp_path: Path) -> None:
     run(notary.run(max_opens=2))
     assert fake.posts == [] and state.cursor == 12 and "m-1" in state.handled
     assert len(fake.opens) == 2
+
+
+def test_salt_rotates_for_a_new_incident_thread_with_a_reused_id(tmp_path: Path) -> None:
+    """Rehearsal resets restart at INC-0001: a new incident thread must not inherit the old thread's salt (run 4)."""
+    fake = FakeSwitch([[state_frame(), message(12, "@notary salt INC-0001", "s1", thread="incident-a"),
+                        message(13, "@notary salt INC-0001", "s2", thread="incident-a"),
+                        message(14, "@notary salt INC-0001", "s3", thread="incident-b")]])
+    notary, _ = make(fake, tmp_path)
+    run(notary.run(max_opens=1))
+    import re
+    salts = [re.search(r"`(inc-\d{4}-[0-9a-f]{8})`", p["body"]).group(1) for p in fake.posts]
+    assert salts[0] == salts[1] and salts[2] != salts[0]
