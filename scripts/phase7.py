@@ -207,7 +207,7 @@ def step_template(gw: Gateway, e: dict[str, str], st: dict[str, Any]) -> None:
     room_yaml = build_templates.rooms_yaml("payco-agent", "shopco-agent", "mediator", "notary", "priya", "sam",
                                            "payco-shopco", "payco-shopco-shared", "payco", "shopco")
     room_yaml = room_yaml.replace("channel_type:", f"bridge: {build_templates.q(bridge)}\n    channel_type:")
-    out = gw.req("POST", "/rooms/from-template", {"agents": agents, "yaml": room_yaml, "inputs": {"workspace": workspace},
+    out = gw.req("POST", "/rooms/from-template", {"agents": agents, "yaml": room_yaml, "inputs": None,
                                                   "template_name": "crosswire-team"})
     created = out.get("created_agents", [])
     st["agents"] = {a["name"]: a["agent_id"] for a in created}
@@ -244,24 +244,49 @@ def step_claims(gw: Gateway, e: dict[str, str], st: dict[str, Any]) -> None:
         if not pw:
             raise SystemExit(f"SWITCH_{name.upper()}_PASSWORD missing in .env (users step creates it)")
         user_gw = Gateway(e["SWITCH_BRIDGE_URL"]).login(person_email(name), pw)
-        mine = user_gw.req("GET", "/auth/me/identities")
-        if any(i.get("username") == name and i.get("confirmed", True) for i in items(mine, "identities")):
+        mine = items(user_gw.req("GET", "/auth/me/identities"), "identities")
+        st.setdefault("identity_fields", sorted({k for i in mine for k in i}))
+        if any(_linked(i, name) for i in mine):
             say(f"claim {name}: already linked")
             continue
         mm = mmlib.Mattermost(e["MM_URL"]).login(name, e[f"MM_{name.upper()}_PASSWORD"])
         bridges = items(user_gw.req("GET", "/collaborations"), "collaborations", "bridges")
         bridge = next(b for b in bridges if "mattermost" in json.dumps(b).lower())
-        claim = user_gw.req("POST", f"/collaborations/{bridge['id']}/identities",
-                            {"external_user_id": mm.me["id"], "username": name})
-        code = claim.get("code") or (claim.get("confirmation") or {}).get("code")
+        bridge_id = bridge.get("bridge_id") or bridge["id"]
+        try:
+            claim = user_gw.req("POST", f"/collaborations/{bridge_id}/identities",
+                                {"external_user_id": mm.me["id"], "username": name})
+        except GatewayError as exc:
+            if "HTTP 409" not in str(exc):
+                raise
+            claim = next(i for i in mine if i.get("external_user_id") == mm.me["id"])
+        code = claim.get("code")
+        if not code:  # newer servers: a claim's code comes from its own endpoint, for the caller only
+            try:
+                code = (user_gw.req("POST", f"/collaborations/{bridge_id}/identities/{claim['id']}/code") or {}).get("code")
+            except GatewayError as exc:
+                if "HTTP 404" not in str(exc):
+                    raise
+                say(f"claim {name}: linked (this server, switch-core 0.31.0, takes a claim effect immediately)")
+                continue
         if not code:
-            raise GatewayError(f"claim for {name} returned no code (fields: {sorted(claim)})")
+            raise GatewayError(f"no link code for {name}")
         ch = _mm_channel(mm, home[name])
         sent = mm.send(ch["id"], f"!link-account {code}")
         mm.wait([ch["id"]], sent["create_at"], lambda ps: bool(mmlib.real(ps)), timeout=60, quiet=3, exclude={sent["id"]})
         mine = items(user_gw.req("GET", "/auth/me/identities"), "identities")
-        ok = any(i.get("username") == name for i in mine)
+        ok = any(_linked(i, name) for i in mine)
         say(f"claim {name}: {'linked' if ok else 'NOT confirmed'} (code posted from @{name}, never printed)")
+
+
+def _linked(identity: dict[str, Any], name: str) -> bool:
+    """On 0.31.0 a listed identity is a linked one (no confirmation step). Newer servers flag pending links."""
+    if (identity.get("external_username") or identity.get("username")) != name:
+        return False
+    for flag in ("verified", "confirmed", "is_confirmed"):
+        if flag in identity:
+            return bool(identity[flag])
+    return not identity.get("pending", False)
 
 
 def _rule(rooms: list[str], users: list[str], agents: list[str]) -> dict[str, Any]:
@@ -274,7 +299,19 @@ def step_policies(gw: Gateway, e: dict[str, str], st: dict[str, Any]) -> None:
     missing = [n for n in AGENT_NAMES if n not in agents]
     if missing:
         raise GatewayError(f"agents missing on the server: {missing}")
-    r, u = st["rooms"], st["users"]
+    r = st["rooms"]
+    # On switch-core 0.31.0 a rule's `users` dimension is matched against the sender's PLATFORM account (the bridge's
+    # ExternalUser row), not the Switch user who claimed it; claims only feed the `owner` check. So the rules name
+    # Priya's and Sam's Mattermost accounts on the bridge.
+    bridge = next(b for b in items(gw.req("GET", "/collaborations"), "collaborations") if "mattermost" in json.dumps(b).lower())
+    accounts = items(gw.req("GET", f"/collaborations/{bridge.get('bridge_id') or bridge['id']}/users"), "users")
+    u = {}
+    for name in PEOPLE:
+        row = next((a for a in accounts if a.get("external_username") == name), None)
+        if row is None:
+            raise GatewayError(f"the Mattermost bridge has no account {name} (run the claims step)")
+        u[name] = row["id"]
+    st["platform_accounts"] = u
     pay_in, shop_in, shared = r["payco-internal"], r["shopco-internal"], r["payco-shopco-shared"]
     table = {
         "payco-agent": [_rule([pay_in], [u["priya"]], []), _rule([shared], [u["priya"]], [agents["mediator"]])],
@@ -292,8 +329,22 @@ def step_policies(gw: Gateway, e: dict[str, str], st: dict[str, Any]) -> None:
                 break
             except GatewayError:
                 continue
-        (POLICIES / f"{name}.json").write_text(json.dumps(back, indent=1, sort_keys=True) + "\n")
+        (POLICIES / f"{name}.json").write_text(json.dumps(_named_policy(name, back, st, agents), indent=1) + "\n")
         say(f"policy {name}: {len(rules)} rule(s) set; read-back saved to switch/policies/{name}.json")
+
+
+def _named_policy(name: str, back: Any, st: dict[str, Any], agents: dict[str, str]) -> dict[str, Any]:
+    """Only the policy, with ids resolved to names: the full agent record holds machine paths and metadata."""
+    names = ({v: f"#{k}" for k, v in st["rooms"].items()} | {v: k for k, v in st["users"].items()}
+             | {v: f"@{k} (Mattermost)" for k, v in st.get("platform_accounts", {}).items()}
+             | {v: k for k, v in agents.items()})
+    pol = (back or {}).get("addressing_policy") or (back or {}).get("policy") or {}
+    nm = lambda x: x if x == "*" else [names.get(i, f"<unknown {i[:8]}>") for i in x]  # noqa: E731
+    return {"agent": name, "owner": "admin (UPDATE-003 ownership model)",
+            "source": "GET /gateway/agents/{id} read-back, ids resolved to names",
+            "rules": [{"rooms": nm(r["rooms"]), "room_groups": r["room_groups"], "users": nm(r["users"]),
+                       "agents": nm(r["agents"]), "owner": r["owner"], "owner_agents": r["owner_agents"],
+                       "platform": r["platform"]} for r in pol.get("rules", [])]}
 
 
 def _send_and_wait(mm: mmlib.Mattermost, channel: str, text: str, want: str | None, timeout: float = 180) -> list[mmlib.Post]:
@@ -315,14 +366,16 @@ def step_smoke(gw: Gateway, e: dict[str, str], st: dict[str, Any]) -> None:
     sam = mmlib.Mattermost(e["MM_URL"]).login("sam", e["MM_SAM_PASSWORD"])
     checks = []
     p = _send_and_wait(priya, "payco-internal", "@payco-agent hello, one line please", "payco-agent")
-    checks.append(("Priya -> @payco-agent (payco-internal) answers", bool(mmlib.real(p, "payco-agent"))))
+    REFUSED = ("not permitted", "can't act", "cannot act", "restricted")
+    answered = lambda ps, who: any(not any(w in x.message.lower() for w in REFUSED) for x in mmlib.real(ps, who))  # noqa: E731
+    checks.append(("Priya -> @payco-agent (payco-internal) answers", answered(p, "payco-agent")))
     p = _send_and_wait(sam, "payco-shopco-shared", "@payco-agent hello", "payco-agent")
     refusal = " ".join(x.message for x in mmlib.real(p, "payco-agent")).lower()
     checks.append(("Sam -> @payco-agent gets a visible refusal", any(w in refusal for w in ("not permitted", "can't act", "cannot act", "restricted"))))
     p = _send_and_wait(priya, "payco-shopco-shared", "@notary help", "notary")
-    checks.append(("@notary help replies", "compare" in " ".join(x.message for x in mmlib.real(p, "notary"))))
+    checks.append(("@notary help replies", answered(p, "notary") and "compare" in " ".join(x.message for x in mmlib.real(p, "notary"))))
     p = _send_and_wait(sam, "payco-shopco-shared", "@mediator who are you and what is this room for? Two lines.", "mediator")
-    checks.append(("@mediator gives a room-specific answer", any(w in " ".join(x.message for x in mmlib.real(p, "mediator")).lower()
+    checks.append(("@mediator gives a room-specific answer", answered(p, "mediator") and any(w in " ".join(x.message for x in mmlib.real(p, "mediator")).lower()
                                                                 for w in ("incident", "payco", "shopco"))))
     for label, ok in checks:
         say(f"smoke: {'PASS' if ok else 'FAIL'}  {label}")

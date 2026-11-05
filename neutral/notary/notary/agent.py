@@ -169,6 +169,7 @@ class Notary:
         elif kind == "subscription_changed":
             self.rooms = sorted(data.get("rooms") or [])
             log(f"rooms now {self.rooms} ({data.get('reason')})")
+            await self.take_role()
         elif kind == "room_released":
             if data.get("room_id") == self.current_room:
                 self.current_room = None

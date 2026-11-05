@@ -1,0 +1,25 @@
+{
+ "agent": "mediator",
+ "owner": "admin (UPDATE-003 ownership model)",
+ "source": "GET /gateway/agents/{id} read-back, ids resolved to names",
+ "rules": [
+  {
+   "rooms": [
+    "#payco-shopco-shared"
+   ],
+   "room_groups": "*",
+   "users": [
+    "@priya (Mattermost)",
+    "@sam (Mattermost)"
+   ],
+   "agents": [
+    "payco-agent",
+    "shopco-agent",
+    "notary"
+   ],
+   "owner": false,
+   "owner_agents": false,
+   "platform": false
+  }
+ ]
+}

@@ -197,3 +197,12 @@ def test_takes_the_notary_role_once(tmp_path: Path) -> None:
     run(notary.run(max_opens=2))
     assert fake.ops_called.count("assume_role") == 1
     assert fake.ops_called.index("connect_to_room") < fake.ops_called.index("assume_role")
+
+
+def test_takes_the_role_when_added_to_a_room_later(tmp_path: Path) -> None:
+    empty = sse("connection_state", {"rooms": [], "cursor": 10, "heartbeat_interval_seconds": 2})
+    added = sse("subscription_changed", {"rooms": [ROOM], "reason": "joined"})
+    fake = FakeSwitch([[empty, added]])
+    notary, _ = make(fake, tmp_path)
+    run(notary.run(max_opens=1))
+    assert fake.ops_called.count("assume_role") == 1
