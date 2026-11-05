@@ -30,6 +30,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 import mmlib  # noqa: E402
 import phase7  # noqa: E402
+import sessions  # noqa: E402
 import toolpath  # noqa: E402
 
 SHARED, PAY_IN, SHOP_IN = "payco-shopco-shared", "payco-internal", "shopco-internal"
@@ -51,6 +52,9 @@ MEDIATOR_TASK = """@mediator PREFLIGHT (a setup check, not an incident). Use you
 3) Update it to `ok 2`. 4) Delete it. 5) Reply with one line per step: ok or failed (quote any error)."""
 
 
+SESSION_CHECK_STRICT = False
+
+
 class Check:
     def __init__(self) -> None:
         self.rows: list[tuple[str, bool, str]] = []
@@ -58,6 +62,12 @@ class Check:
     def __call__(self, label: str, ok: bool, detail: str = "") -> bool:
         self.rows.append((label, ok, detail))
         print(f"  {'PASS' if ok else 'FAIL'}  {label}{(' (' + detail + ')') if detail else ''}", flush=True)
+        return ok
+
+    def warn(self, label: str, ok: bool, detail: str = "") -> bool:
+        """Recorded and printed like a check, but never fails the preflight (WARN instead of FAIL)."""
+        self.rows.append((label, True, ("WARN: " + detail) if not ok else detail))
+        print(f"  {'PASS' if ok else 'WARN'}  {label}{(' (' + detail + ')') if detail else ''}", flush=True)
         return ok
 
     @property
@@ -209,6 +219,26 @@ def main() -> int:
               f"{health.get('events_received')} events")
     except OSError:
         print("  SKIP  console observer (console server not running yet)", flush=True)
+
+    # duplicate sessions: run 4's agents kept reporting "this session took over the room from another session".
+    # Read-only: Gateway GETs plus local process discovery (PID + cwd, never command lines).
+    ids = {x["name"]: x["id"] for x in phase7.items(gw.req("GET", "/agents"), "agents")}
+    for agent, ws in sessions.AGENTS.items():
+        sw = sessions.switch_sessions(gw, ids[agent])
+        loc = sessions.local_sessions(ws)
+        # SESSION_CHECK_STRICT: Console starts one session per room an agent is addressed in (and respawns them after
+        # restart-agent), so this is a WARN until the session model is decided; set it True to make it fail
+        (check if SESSION_CHECK_STRICT else check.warn)(
+              f"{agent} has exactly one live session (Switch: {len(sw)}, local Claude Code: {len(loc)})",
+              len(sw) == 1 and len(loc) <= 1,
+              "" if len(sw) == 1 and len(loc) <= 1 else
+              (f"local PIDs {', '.join(str(s['pid']) for s in loc)}: stop the extras with "
+               f"`scripts/restart-agent.sh workspace/{ws}` (Console starts one fresh session on the next mention); "
+               f"if Switch lists {len(sw)} live sessions, end the stale ones on the agent's page in Switch Console, "
+               "between runs"))
+    foreign = sessions.foreign_members(gw, st["rooms"], {v: k for k, v in ids.items()})
+    check("no spike agent or switch-buddy-admin in the Crosswire rooms", not foreign,
+          "; ".join(foreign) + ": remove them from the room in Switch Console" if foreign else "")
 
     clean_state(gw, st["rooms"][SHARED])
     out = ROOT / "rehearsals" / f"preflight-{started:%Y%m%d-%H%M%S}.json"

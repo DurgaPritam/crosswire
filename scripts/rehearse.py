@@ -26,6 +26,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 import mmlib  # noqa: E402
+import sessions  # noqa: E402
 import toolpath  # noqa: E402
 import simulate  # noqa: E402
 
@@ -264,8 +265,10 @@ def one_run(n: int, reset: bool) -> Grade:
     deadline = time.monotonic() + RUN_TIMEOUT
     done_at: float | None = None
     last_change = time.monotonic()
+    peak = sessions.PeakSessions()
     while time.monotonic() < deadline:
         changed = False
+        peak.sample()
         for name, cid in channels.items():
             client = reader if name != SHOP_IN else humans["sam"]
             for p in client.posts_since(cid, since - 1):
@@ -305,6 +308,15 @@ def one_run(n: int, reset: bool) -> Grade:
     console_call("/api/record/stop")
     guard_stats = {c: sh("scripts/guard-stats.sh", c).strip() for c in ("payco", "shopco")}
     g = grade(posts, driver, guard_stats)
+    peak.last = 0.0
+    peak.sample()
+    for agent, n in peak.peak.items():  # one session per room is Console's model; recorded to correlate with the next
+        if n > 1:
+            g.warnings.append(f"{agent}: up to {n} local Claude Code sessions during the run")
+    persons = [p for _, p in posts if not p.from_bot and p.username not in ("priya", "sam") and mmlib.real([p])]
+    if persons:
+        g.warnings.append(f"{len(persons)} post(s) from a person's account that isn't priya/sam "
+                          f"({', '.join(sorted({p.username for p in persons}))}): the bridge didn't use the agent's bot")
     REHEARSALS.mkdir(exist_ok=True)
     out = REHEARSALS / f"run-{n}.md"
     out.write_text(render(n, started, posts, g, guard_stats).replace(str(Path.home()), "~"), encoding="utf-8")  # no home paths in git
