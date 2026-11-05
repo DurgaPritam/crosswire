@@ -129,7 +129,8 @@ function TopBar({ L, S, theme, D, controls, onViewAs, onRun }: { L: Layout; S: S
           {controls && S.mode === 'live' && controls.configured && (
             <Button variant="primary" icon={controls.running ? 'clock' : 'terminal'} disabled={controls.running} onClick={onRun}>{controls.running ? 'Running…' : 'Run live incident'}</Button>
           )}
-          {controls && !controls.configured && <Button variant="primary" icon="replay" onClick={controls.onWatchRecorded}>Watch a recorded incident</Button>}
+          {controls?.runError && S.mode === 'live' && <span title={controls.runError} className="max-w-[320px] truncate"><Chip role="blocked" icon="blocked">Can't start: {controls.runError}</Chip></span>}
+          {controls && !controls.configured && S.mode === 'live' && <Button variant="primary" icon="replay" onClick={controls.onWatchRecorded}>Watch a recorded incident</Button>}
           <Segmented id="mode" value={S.mode} width={L.liveW} onChange={controls?.onMode} options={[
             { value: 'live', label: <><span className="role-approved cw-dot" />Live</> },
             { value: 'replay', label: <><Icon name="replay" size={14} />Replay</> },
@@ -690,9 +691,9 @@ function CompareLine({ text, field, n }: { text: string; field: string; n: numbe
 }
 function PlusBytes({ animate, n: target = 4, small }: { animate?: boolean; n?: number; small?: boolean }) {
   const reduce = useReducedMotion();
-  const [n, setN] = useState(animate && !reduce ? 0 : target);
+  const [n, setN] = useState(animate && !reduce && target > 0 ? 0 : target);
   useEffect(() => {
-    if (!animate || reduce) { setN(target); return; }
+    if (!animate || reduce || target <= 0) { setN(target); return; }  // nothing to count (a same-length difference)
     let id: ReturnType<typeof setInterval> | undefined;
     const start = setTimeout(() => { let i = 0; id = setInterval(() => { i += 1; setN(i); if (i >= target) clearInterval(id); }, 900 / Math.max(1, target)); }, 900);
     return () => { clearTimeout(start); if (id) clearInterval(id); };
@@ -744,7 +745,7 @@ function ByteDiff({ L, D, onClose }: { L: Layout; D?: StoryData | null; onClose?
                 <span className={cx('whitespace-nowrap font-mono text-ui', hot ? 'text-fg' : 'text-fg2')}>{r.path}</span>
                 <ByteCell n={r.pay} hash={r.payHash} />
                 <ByteCell n={r.shop} hash={r.shopHash} />
-                {hot ? <><span><PlusBytes animate n={Math.abs(r.delta)} /></span><span><Chip role="investigating">differs</Chip></span><span><Chip role="payco" mono>{r.escaped}</Chip></span></>
+                {hot ? <><span>{r.delta !== 0 ? <PlusBytes animate n={Math.abs(r.delta)} /> : <Meta className="!text-[12px]">0 · same length</Meta>}</span><span><Chip role="investigating">differs</Chip></span><span>{r.escaped !== '—' ? <Chip role="payco" mono>{r.escaped}</Chip> : <Meta>—</Meta>}</span></>
                   : <><Meta className="!text-[12px]">0</Meta><span><Chip role="approved" icon="check">match</Chip></span><Meta>—</Meta></>}
               </motion.div>
             );

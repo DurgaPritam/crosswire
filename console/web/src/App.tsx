@@ -42,6 +42,7 @@ export default function App() {
   const [cfg, setCfg] = useState<ServerConfig | null>(null);
   const [mode, setMode] = useState<'live' | 'replay' | null>(P.replay ? 'replay' : null);
   const [running, setRunning] = useState(false);
+  const [runError, setRunError] = useState<string | null>(null);
 
   useEffect(() => { if (!P.designScene) fetchConfig().then((c) => { setCfg(c); setMode((m) => m ?? (c?.switch_configured ? 'live' : 'replay')); }); }, [P.designScene]);
   useEffect(() => {
@@ -59,13 +60,15 @@ export default function App() {
 
   if (P.designScene) return <Fit bp={bp}><Console scene={scene} theme={P.theme} breakpoint={bp} onSceneChange={setScene} /></Fit>;
   const data = mode === 'live' ? live : replayData;
-  const runLive = () => fetch('/api/run', { method: 'POST' }).then((r) => r.json()).then((s) => setRunning(!!s.ok)).catch(() => undefined);
+  const runLive = () => fetch('/api/run', { method: 'POST' }).then((r) => r.json())
+    .then((s) => { setRunning(!!s.ok); setRunError(s.ok ? null : String(s.error ?? 'refused')); })
+    .catch(() => setRunError('the console server is not reachable'));
   return (
     <Fit bp={bp}>
       <Console scene={scene === 'present' ? 'present' : mode === 'replay' ? 'replay' : 'live'} theme={P.theme} breakpoint={bp}
         onSceneChange={(s) => setScene(s === 'present' ? 'present' : 'live')}
         data={data ?? (cfg ? { ...EMPTY, mode: mode ?? 'live' } : null)} replay={mode === 'replay' ? replay : undefined}
-        controls={{ configured: !!cfg?.switch_configured, running, onMode: (m) => setMode(m === 'live' && !cfg?.switch_configured ? 'replay' : m),
+        controls={{ configured: !!cfg?.switch_configured, running, runError, onMode: (m) => setMode(m === 'live' && !cfg?.switch_configured ? 'replay' : m),
                     onRunLive: runLive, onWatchRecorded: () => setMode('replay') }} />
     </Fit>
   );

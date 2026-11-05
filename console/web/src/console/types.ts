@@ -36,5 +36,6 @@ export interface ConsoleProps {
     onMode?: (m: 'live' | 'replay') => void;
     onRunLive?: () => void;       // shown only in Live mode when configured (after a confirm)
     onWatchRecorded?: () => void; // shown when Switch isn't configured
+    runError?: string | null;     // why the last Run live incident request was refused (missing tool, busy, …)
   };
 }
