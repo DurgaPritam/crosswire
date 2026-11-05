@@ -44,6 +44,7 @@ test:
 
 # Run the notary protocol agent (register once first: just notary-register, after Phase 7 creates `host`)
 notary:
+    ./scripts/ensure-venv.sh
     cd neutral/notary && ../../.venv/bin/python -m notary
 
 # Rebuild and (re)start the notary container from the current code
@@ -64,11 +65,13 @@ restart-agent dir:
 
 # Incident Console, Live mode (observer + guard logs), http://127.0.0.1:7300 (builds the web app first)
 console:
+    ./scripts/ensure-venv.sh
     cd console/web && ([ -d node_modules ] || npm ci --silent) && npm run build --silent
     cd console/server && ../../.venv/bin/python -m crosswire_console
 
 # Incident Console, Replay mode (plays console/fixtures/demo-run.events.jsonl, rehearsal run 7; no Switch needed; ?replay=<file> picks another)
 console-replay:
+    ./scripts/ensure-venv.sh
     cd console/web && ([ -d node_modules ] || npm ci --silent) && npm run build --silent
     cd console/server && ../../.venv/bin/python -m crosswire_console --replay
 

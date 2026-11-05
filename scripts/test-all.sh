@@ -3,10 +3,7 @@
 set -uo pipefail
 cd "$(dirname "$0")/.."
 export PATH="$PATH:$HOME/.docker/bin"
-if [ ! -x .venv/bin/python ]; then
-  echo "creating .venv (python3.12 if available) from requirements-dev.txt"
-  "$(command -v python3.12 || command -v python3)" -m venv .venv && .venv/bin/pip install -q -r requirements-dev.txt || exit 1
-fi
+./scripts/ensure-venv.sh || exit 1
 PY=.venv/bin/python
 failed=()
 run() { # name, command...
