@@ -1,0 +1,168 @@
+#!/usr/bin/env python3
+"""Generate the Crosswire Switch templates from the runtime playbooks (so they never drift).
+
+    python3 scripts/build_templates.py          # writes switch/crosswire-team.template.yaml + switch/crosswire.template.yaml
+    python3 scripts/build_templates.py --check  # exit 1 if either file is out of date
+
+crosswire-team.template.yaml  agents (payco-agent, shopco-agent, mediator: Claude Code, managed by the deployer's
+                              Console) + the three rooms, roles, links and kickoffs. One run sets up Phase 7.2/7.4.
+crosswire.template.yaml       the rooms only, for agents that already exist (Phase 7.5's room template).
+
+Neither can set addressing policies or identity claims: Phase 7 sets those through the Gateway API.
+"""
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+TEAM = ROOT / "switch" / "crosswire-team.template.yaml"
+ROOMS = ROOT / "switch" / "crosswire.template.yaml"
+SHARED_INSTRUCTIONS = (ROOT / "switch" / "shared-room-instructions.md").read_text(encoding="utf-8").strip()
+
+AGENTS = [  # name, playbook, working dir under the workspace param, description
+    ("payco-agent", "companies/payco/AGENT.md", "payco", "PayCo's integration engineer (owner in the demo: Priya)"),
+    ("shopco-agent", "companies/shopco/AGENT.md", "shopco", "ShopCo's integration engineer (owner in the demo: Sam)"),
+    ("mediator", "neutral/mediator/AGENT.md", "mediator", "Neutral incident commander for PayCo and ShopCo incidents"),
+]
+ROLES = [
+    ("incident-commander", "Runs the incident: thread, record, salt, requests by role, verdict.", True),
+    ("provider-responder", "Answers for the webhook provider (PayCo) with approved disclosures only.", False),
+    ("consumer-responder", "Answers for the webhook consumer (ShopCo) with approved disclosures only.", False),
+    ("notary", "Deterministic byte comparison of approved fingerprint disclosures.", False),
+]
+
+
+def block(text: str, indent: int) -> str:
+    pad = " " * indent
+    return "|\n" + "\n".join((pad + line) if line.strip() else "" for line in text.strip("\n").splitlines())
+
+
+def q(text: str) -> str:
+    return '"' + text.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+def rooms_yaml(provider_agent: str, consumer_agent: str, mediator: str, notary: str, provider_user: str,
+               consumer_user: str, prefix: str, shared: str, provider: str, consumer: str) -> str:
+    roles = "\n".join(
+        f"        - name: {name}\n          instructions: {q(instr)}\n          exclusive: {'true' if excl else 'false'}"
+        for name, instr, excl in ROLES)
+    return f"""group:
+  name: {q(prefix + " partnership")}
+  description: "PayCo and ShopCo debug integrations together without sharing code or customer data."
+
+rooms:
+  - name: {q(provider + "-internal")}
+    description: "PayCo's private room: Priya approves every PayCo disclosure here."
+    channel_type: channel_private
+    agents: [{q(provider_agent)}]
+    users: [{q(provider_user)}, "{{$creator}}"]
+    kickoff: |
+      @{provider_agent} this is PayCo's private room with {provider_user}. Drafts and approvals happen here.
+      Reply in one line to confirm, then wait.
+
+  - name: {q(consumer + "-internal")}
+    description: "ShopCo's private room: Sam approves every ShopCo disclosure here."
+    channel_type: channel_private
+    agents: [{q(consumer_agent)}]
+    users: [{q(consumer_user)}, "{{$creator}}"]
+    kickoff: |
+      @{consumer_agent} this is ShopCo's private room with {consumer_user}. Drafts and approvals happen here.
+      Reply in one line to confirm, then wait.
+
+  - name: {q(shared)}
+    description: "PayCo <-> ShopCo partnership room (like a Slack Connect shared channel)."
+    channel_type: channel_private
+    agents: [{q(mediator)}, {q(provider_agent)}, {q(consumer_agent)}, {q(notary)}]
+    users: [{q(provider_user)}, {q(consumer_user)}, "{{$creator}}"]
+    instructions: {block(SHARED_INSTRUCTIONS, 6)}
+    roles:
+{roles}
+    kickoff: |
+      Welcome to the partnership room. Please each take your role here and confirm in one line:
+      @{mediator} take incident-commander. @{provider_agent} take provider-responder.
+      @{consumer_agent} take consumer-responder. @{notary} help
+
+links:
+  - {{from: {q(provider + "-internal")}, to: {q(shared)}, label: "company-private -> partnership"}}
+  - {{from: {q(consumer + "-internal")}, to: {q(shared)}, label: "company-private -> partnership"}}
+"""
+
+
+def team_template() -> str:
+    agents = []
+    for name, playbook, sub, desc in AGENTS:
+        instructions = (ROOT / playbook).read_text(encoding="utf-8")
+        agents.append(f"""  - name: {name}
+    description: {q(desc)}
+    provider: claude
+    location: local
+    directory: "{{workspace}}/{sub}"
+    addressing: owner
+    auto_mode: true
+    auto_approve: false
+    instructions: {block(instructions, 6)}""")
+    head = """# GENERATED by scripts/build_templates.py from the AGENT.md playbooks. Do not edit by hand.
+#
+# Crosswire team: payco-agent, shopco-agent and mediator (Claude Code, run by the deployer's Switch Console in
+# the workspace/ directories `just setup` creates), plus #payco-internal, #shopco-internal and
+# #payco-shopco-shared with roles, links and kickoffs. The notary must be registered first (just notary-register).
+# Addressing policies and identity claims are NOT set by templates: Phase 7 sets them through the Gateway API.
+version: 1
+
+params:
+  workspace:
+    type: directory
+    description: "Absolute path of crosswire/workspace on this machine (created by `just setup`)"
+  bridge:
+    type: bridge
+    description: Where the rooms are mirrored
+    default: [$first]
+
+agents:
+"""
+    rooms = rooms_yaml("payco-agent", "shopco-agent", "mediator", "notary", "priya", "sam",
+                       "payco-shopco", "payco-shopco-shared", "payco", "shopco")
+    return head + "\n".join(agents) + "\n\n" + rooms.replace("channel_type:", 'bridge: "{bridge}"\n    channel_type:')
+
+
+def room_template() -> str:
+    head = """# GENERATED by scripts/build_templates.py. The Crosswire rooms for agents that already exist.
+# Addressing policies and identity claims are NOT set by templates (Phase 7 does that via the Gateway API).
+version: 1
+
+params:
+  provider_agent: {type: agent, description: "PayCo's agent (provider-responder)", default: payco-agent}
+  consumer_agent: {type: agent, description: "ShopCo's agent (consumer-responder)", default: shopco-agent}
+  mediator_agent: {type: agent, description: "The neutral incident commander", default: mediator}
+  notary_agent: {type: agent, description: "The deterministic notary", default: notary}
+  provider_user: {type: user, description: "PayCo's human approver", default: priya}
+  consumer_user: {type: user, description: "ShopCo's human approver", default: sam}
+  bridge: {type: bridge, description: "Where the rooms are mirrored", default: [$first]}
+  partnership_name: {type: string, description: "Prefix of the shared room", default: payco-shopco}
+  provider_name: {type: string, description: "Prefix of the provider's private room", default: payco}
+  consumer_name: {type: string, description: "Prefix of the consumer's private room", default: shopco}
+
+"""
+    rooms = rooms_yaml("{provider_agent}", "{consumer_agent}", "{mediator_agent}", "{notary_agent}",
+                       "{provider_user}", "{consumer_user}", "{partnership_name}", "{partnership_name}-shared",
+                       "{provider_name}", "{consumer_name}")
+    return head + rooms.replace("channel_type:", 'bridge: "{bridge}"\n    channel_type:')
+
+
+def main(argv: list[str]) -> int:
+    outputs = {TEAM: team_template(), ROOMS: room_template()}
+    if "--check" in argv:
+        stale = [p for p, text in outputs.items() if not p.exists() or p.read_text(encoding="utf-8") != text]
+        for p in stale:
+            print(f"out of date: {p.relative_to(ROOT)} (run scripts/build_templates.py)")
+        return 1 if stale else 0
+    for path, text in outputs.items():
+        path.write_text(text, encoding="utf-8")
+        print(f"wrote {path.relative_to(ROOT)}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

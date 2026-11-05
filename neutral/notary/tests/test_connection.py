@@ -68,6 +68,8 @@ class FakeSwitch:
             if name == "post_message":
                 self.posts.append(args)
                 return httpx.Response(200, json={"result": {"event_id": f"posted-{len(self.posts)}"}})
+            if name == "connect_to_room":
+                return httpx.Response(200, json={"result": {"room_id": args.get("room_id"), "roles": [{"name": "notary"}, {"name": "incident-commander"}]}})
             return httpx.Response(200, json={"result": {"room_id": args.get("room_id")}})
         if path == f"/agents/{AGENT}/events":
             self.opens.append({"params": dict(request.url.params), "last_event_id": request.headers.get("Last-Event-ID")})
@@ -187,3 +189,11 @@ def test_repeated_eviction_stops_with_a_clear_error(tmp_path: Path) -> None:
 def test_state_file_is_private(tmp_path: Path) -> None:
     State(tmp_path / "s.json")
     assert (tmp_path / "s.json").stat().st_mode & 0o777 == 0o600
+
+
+def test_takes_the_notary_role_once(tmp_path: Path) -> None:
+    fake = FakeSwitch([[state_frame()], [state_frame()]])
+    notary, _ = make(fake, tmp_path)
+    run(notary.run(max_opens=2))
+    assert fake.ops_called.count("assume_role") == 1
+    assert fake.ops_called.index("connect_to_room") < fake.ops_called.index("assume_role")

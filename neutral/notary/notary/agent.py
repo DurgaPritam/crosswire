@@ -74,6 +74,8 @@ class Notary:
         self.evictions: list[float] = []
         self.pending_gap: dict[str, Any] | None = None
         self.stop = asyncio.Event()
+        self.role = os.environ.get("NOTARY_ROLE", "notary")
+        self.role_taken = False
 
     # ------------------------------------------------------------------ connection loop
 
@@ -157,6 +159,7 @@ class Notary:
             self.state.save()
             connected.set()
             log(f"connected: {len(self.rooms)} room(s), cursor {self.state.cursor}, protocol {data.get('protocol')}")
+            await self.take_role()
         elif kind == "gap":
             self.pending_gap = data
             log(f"gap from {data.get('from_sequence')} resumed at {data.get('resumed_at')} ({data.get('reason')}); "
@@ -176,6 +179,27 @@ class Notary:
             if seq is not None:
                 self.state.cursor = max(int(seq), self.state.cursor or 0)
                 self.state.save()
+
+    async def take_role(self) -> None:
+        """Hold the room's `notary` role (one role per agent across all rooms: the first room defining it)."""
+        if self.role_taken or not self.role:
+            return
+        for room_id in self.rooms:
+            try:
+                ctx = await self.client.op("connect_to_room", room_id=room_id, include_general_instructions=False) or {}
+                self.current_room = room_id
+                names = {r.get("name") if isinstance(r, dict) else r for r in ctx.get("roles") or []}
+                if self.role not in names:
+                    continue
+                await self.client.op("assume_role", role=self.role)
+                self.role_taken = True
+                log(f"took role {self.role} in {room_id}")
+                return
+            except SwitchError as exc:
+                if "already" in str(exc).lower():
+                    self.role_taken = True
+                    return
+                log(f"could not take role {self.role} in {room_id}: {exc}")
 
     # ------------------------------------------------------------------ behaviour
 
