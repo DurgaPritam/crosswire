@@ -113,6 +113,7 @@ class Approver:
         self.refusals: list[dict] = []
         self.current: str | None = None          # the incident the notary most recently issued a salt for
         self.issued: dict[str, str] = {}         # incident -> the salt the notary issued for it (latest)
+        self.watching = False                    # the Mattermost watcher is logged in and polling
         self.lock = threading.Lock()
         log(f"pinned {sum(len(v) for v in self.pins.values())} control files across {len(self.pins)} workspaces")
 
@@ -199,6 +200,7 @@ def watch(ap: Approver, mm: MM) -> None:
     salts(list((hist.get("posts") or {}).values()))
     shared_since = max([p["create_at"] for p in (hist.get("posts") or {}).values()] or [int(time.time() * 1000)])
     log(f"watching {', '.join(chans)} for approvals from priya and sam; {SHARED} for the notary's incident salts")
+    ap.watching = True
     while True:
         try:
             data = mm.get(f"/channels/{shared}/posts?since={shared_since - 1}&collapsedThreads=false") or {}
@@ -248,7 +250,7 @@ def serve(ap: Approver) -> None:
             if path == "/health":
                 self._json(200, {"ok": True, "pins": sum(len(v) for v in ap.pins.values()), "approvals": len(ap.records),
                                  "integrity": ap.integrity_problem() or "ok", "refusals": len(ap.refusals),
-                                 "incident": ap.current})
+                                 "incident": ap.current, "watching": ap.watching})
             elif path == "/pubkey":
                 self._json(200, {"ed25519": ap.pub.hex()})
             elif path == "/pins":
@@ -270,10 +272,24 @@ def serve(ap: Approver) -> None:
     ThreadingHTTPServer(("0.0.0.0", PORT), H).serve_forever()
 
 
+def watch_forever(ap: Approver) -> None:
+    """Log in and watch; on any failure (Mattermost down, no credentials yet) wait and retry. Never signs meanwhile."""
+    url, user, password = (os.environ.get(k, "") for k in ("MM_URL", "MM_USER", "MM_PASSWORD"))
+    if not (url and user and password):
+        log("no Mattermost credentials (MM_URL/MM_USER/MM_PASSWORD): serving, but not watching, so nothing gets signed")
+        return
+    while True:
+        try:
+            watch(ap, MM(url, user, password))
+        except Exception as exc:  # noqa: BLE001  keep serving /health and /pubkey; approvals wait for the watcher
+            ap.watching = False
+            log(f"watcher stopped ({type(exc).__name__}); retrying in 10s")
+            time.sleep(10)
+
+
 def main() -> None:
     ap = Approver()
-    mm = MM(os.environ["MM_URL"], os.environ["MM_USER"], os.environ["MM_PASSWORD"])
-    threading.Thread(target=watch, args=(ap, mm), daemon=True).start()
+    threading.Thread(target=watch_forever, args=(ap,), daemon=True).start()
     log(f"listening on :{PORT}")
     serve(ap)
 

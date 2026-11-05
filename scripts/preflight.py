@@ -173,11 +173,13 @@ def main() -> int:
         with urllib.request.urlopen("http://127.0.0.1:7400/pins", timeout=4) as r:
             apins = json.loads(r.read())
         same = all(apins.get(a, {}) == (pins.get(str((ROOT / "workspace" / a).resolve())) or {}).get("files") for a in ("payco", "shopco", "mediator"))
-        check("approver up, its own pins match the workspaces, and match the host's pins.json",
-              ah.get("ok") and ah.get("integrity") == "ok" and same,
-              f"integrity {ah.get('integrity')}; {'same' if same else 'DIFFERENT'} pins; {ah.get('approvals')} approvals")
+        check("approver up and watching Mattermost, its own pins match the workspaces and the host's pins.json",
+              ah.get("ok") and ah.get("integrity") == "ok" and same and ah.get("watching") is True,
+              f"integrity {ah.get('integrity')}; {'same' if same else 'DIFFERENT'} pins; watching {ah.get('watching')}; "
+              f"{ah.get('approvals')} approvals")
     except OSError as exc:
-        check("approver up, its own pins match the workspaces, and match the host's pins.json", False, f"approver unreachable ({exc})")
+        check("approver up and watching Mattermost, its own pins match the workspaces and the host's pins.json", False,
+              f"approver unreachable ({exc})")
 
     drift = phase7.instructions_drift(gw)
     check("agents' Switch instructions match their AGENT.md", not drift,

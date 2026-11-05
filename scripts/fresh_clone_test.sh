@@ -13,7 +13,7 @@ STAMP="$(date +%Y%m%d-%H%M%S)"
 DIR="/tmp/crosswire-fresh-$STAMP"
 export COMPOSE_PROJECT_NAME="crosswire-fresh-$STAMP"
 
-for port in 7001 7002 7101 7102 7300; do
+for port in 7001 7002 7101 7102 7300 7400; do
   if lsof -nP -iTCP:"$port" -sTCP:LISTEN >/dev/null 2>&1; then
     echo "port $port is in use: stop the main stack (just down) and any Console server first" >&2
     exit 2
