@@ -39,10 +39,16 @@ hooks/
 '
 
 render_settings() { # name, other_company_name_or_empty
-  local name="$1" other="$2" dst="$WS/$1" tpl="$WS/$1/.claude/settings.template.json"
+  # Always from the COMMITTED template (not the workspace's copy), so template changes reach existing workspaces.
+  local name="$1" other="$2" dst="$WS/$1" src tpl
+  case "$name" in mediator) src="$ROOT/neutral/mediator" ;; *) src="$ROOT/companies/$name" ;; esac
+  tpl="$src/.claude/settings.template.json"
   if [ ! -f "$tpl" ]; then
-    echo "  (no .claude/settings.template.json in workspace/$name yet: Phase 6 adds it)"; return
+    echo "  (no .claude/settings.template.json for $name yet: Phase 6 adds it)"; return
   fi
+  mkdir -p "$dst/.claude"
+  cp "$tpl" "$dst/.claude/settings.template.json"
+  [ -f "$src/.mcp.json" ] && cp "$src/.mcp.json" "$dst/.mcp.json"
   python3 "$ROOT/scripts/lib/render_settings.py" "$tpl" "$dst/.claude/settings.json" \
     "PROJECT_DIR=$dst" \
     "OTHER_COMPANY_DIR=$WS/${other:-__none__}" \

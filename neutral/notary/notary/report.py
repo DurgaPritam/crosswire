@@ -9,10 +9,11 @@ from .disclosures import FINGERPRINT_TYPE, Disclosure, DisclosureError
 HELP = """**notary** (deterministic, no AI). Commands:
 - `compare <D-PAY-n> <D-SHOP-n>`: compare PayCo's and ShopCo's approved fingerprint disclosures for the same event,
   byte by byte (lengths, salted hashes, escapes per JSON field). Both must use the incident salt.
+- `salt <INC-nnnn>`: the incident salt (random, made once per incident; asking again repeats it).
 - `help`: this list.
 I report facts about bytes. The mediator interprets them."""
 
-UNKNOWN = "I only understand `compare <D-PAY-n> <D-SHOP-n>` and `help`."
+UNKNOWN = "I only understand `compare <D-PAY-n> <D-SHOP-n>`, `salt <INC-nnnn>` and `help`."
 
 
 def _yn(value: bool | None) -> str:

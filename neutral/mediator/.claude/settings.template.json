@@ -3,6 +3,7 @@
     "blockReadsOutsideWorkingDirectories": true,
     "blockWritesOutsideWorkingDirectories": true,
     "deny": [
+      "Bash",
       "Edit(/{{PROJECT_DIR}}/hooks/**)",
       "Edit(/{{PROJECT_DIR}}/.claude/**)",
       "Edit(/{{PROJECT_DIR}}/.mcp.json)",
@@ -204,9 +205,7 @@
       "WebFetch",
       "WebSearch"
     ],
-    "allow": [
-      "Bash(python3 -c *)"
-    ]
+    "allow": []
   },
   "hooks": {
     "PreToolUse": [

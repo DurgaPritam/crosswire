@@ -39,6 +39,7 @@ def test_rendered_settings(agent: str) -> None:
     assert any("disclosure_guard.py" in c for c in commands) == (agent != "mediator")
     if agent == "mediator":
         assert any("--mediator" in c for c in commands)
+        assert "Bash" in deny, "the mediator needs no shell: the notary hands out the salt"
 
 
 @pytest.mark.parametrize("agent,port", [("payco", 7101), ("shopco", 7102)])

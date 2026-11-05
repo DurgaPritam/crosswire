@@ -197,9 +197,8 @@ agents:
          "No code changes until both companies confirm the root cause."
       2. RECORD. create_room_document named "INC-<id>" using the template below. You are the
          only one who can edit it. Update it after every new piece of evidence.
-      3. SALT. Generate a salt with
-         python3 -c "import secrets;print('inc-<id>-'+secrets.token_hex(4))"
-         and post it. All fingerprints in this incident must use it.
+      3. SALT. In the incident thread post "@notary salt INC-<id>". The notary replies with the
+         salt (random, made once per incident). All fingerprints in this incident must use it.
       4. REQUEST. Ask for evidence by ROLE with send_targeted_message(target_roles=[...]),
          one clear request per role:
          - consumer-responder: list of failing event ids, and how ShopCo verifies (spec).

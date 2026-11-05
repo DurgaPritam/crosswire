@@ -206,3 +206,14 @@ def test_takes_the_role_when_added_to_a_room_later(tmp_path: Path) -> None:
     notary, _ = make(fake, tmp_path)
     run(notary.run(max_opens=1))
     assert fake.ops_called.count("assume_role") == 1
+
+
+def test_salt_is_random_per_incident_and_stable(tmp_path: Path) -> None:
+    fake = FakeSwitch([[state_frame(), message(12, "@notary salt INC-0001", "s1"), message(13, "@notary salt inc-0001", "s2"),
+                        message(14, "@notary salt INC-0002", "s3")]])
+    notary, state = make(fake, tmp_path)
+    run(notary.run(max_opens=1))
+    import re
+    salts = [re.search(r"`(inc-\d{4}-[0-9a-f]{8})`", p["body"]).group(1) for p in fake.posts]
+    assert salts[0] == salts[1] and salts[0].startswith("inc-0001-") and salts[2].startswith("inc-0002-")
+    assert State(tmp_path / "state.json").salts["INC-0001"] == salts[0]

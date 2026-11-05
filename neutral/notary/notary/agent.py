@@ -13,6 +13,7 @@ import json
 import os
 import random
 import re
+import secrets
 import sys
 import time
 import uuid
@@ -26,6 +27,7 @@ from .sse import Frame, SSEParser
 
 COMPARE = re.compile(r"\bcompare\s+(D-(?:PAY|SHOP)-\d+)\s+(D-(?:PAY|SHOP)-\d+)\b", re.I)
 HELP_RE = re.compile(r"\bhelp\b", re.I)
+SALT_RE = re.compile(r"\bsalt\s+(INC-\d{4})\b", re.I)
 DOMAIN_EVENTS = {"message", "command", "room_join", "task_delegate", "task_accept", "task_update",
                  "task_finalise", "task_cancel"}
 HANDLED_CAP = 500
@@ -45,13 +47,14 @@ class State:
         self.connection_id: str = data.get("connection_id") or str(uuid.uuid4())
         self.cursor: int | None = data.get("cursor")
         self.handled: list[str] = list(data.get("handled", []))
+        self.salts: dict[str, str] = dict(data.get("salts", {}))
         if not path.exists():
             self.save()
 
     def save(self) -> None:
         tmp = self.path.with_suffix(".tmp")
         tmp.write_text(json.dumps({"connection_id": self.connection_id, "cursor": self.cursor,
-                                   "handled": self.handled[-HANDLED_CAP:]}))
+                                   "handled": self.handled[-HANDLED_CAP:], "salts": self.salts}))
         os.chmod(tmp, 0o600)
         tmp.replace(self.path)
 
@@ -223,9 +226,20 @@ class Notary:
         m = COMPARE.search(body)
         if m:
             return await self.compare(room_id, m.group(1).upper(), m.group(2).upper())
+        s = SALT_RE.search(body)
+        if s:
+            return self.salt(s.group(1).upper())
         if HELP_RE.search(body):
             return HELP
         return UNKNOWN
+
+    def salt(self, incident: str) -> str:
+        """The incident salt: random (secrets), made once per incident and repeated if asked again."""
+        if incident not in self.state.salts:
+            self.state.salts[incident] = f"{incident.lower()}-{secrets.token_hex(4)}"
+            self.state.save()
+        return (f"Salt for {incident}: `{self.state.salts[incident]}`. "
+                "Every fingerprint in this incident must use exactly this salt.")
 
     async def compare(self, room_id: str, first: str, second: str) -> str:
         sides = {side_of(first): first, side_of(second): second}
