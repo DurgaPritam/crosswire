@@ -1,6 +1,6 @@
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
-import { ease, list, pick, rise, scenes as M, seamTravel, spring } from '../design/motion';
+import { ease, list, pick, reduced, rise, scenes as M, seamTravel, spring } from '../design/motion';
 import { computeLayout, type Layout } from './layout';
 import { Avatar, AvatarStack, Badge, Button, Chip, Icon, Kbd, Label, Mark, Meta, Pill, Seam, Segmented, Skeleton, Typing, type IconName } from './primitives';
 import { dataState, fmt, sceneState, SPAN, type SceneState } from './scenes';
@@ -717,6 +717,9 @@ function Rail({ L, D }: { L: Layout; D?: StoryData | null }) {
 /* ---------- B · Byte diff: scrim + 1248×744 glass modal · rows 64 · columns 240 | 1fr | 1fr | 120 | 108 | 148 ---------- */
 function ByteDiff({ L, D, onClose }: { L: Layout; D?: StoryData | null; onClose?: () => void }) {
   const b = L.byteDiff;
+  const reduce = useReducedMotion();
+  // reduced motion: every entrance is a 120 ms crossfade with no delay (H§6), so the final state shows at once
+  const rm = <T extends object>(x: T) => (reduce ? { initial: { opacity: 0 }, animate: { opacity: 1 }, transition: reduced } : x);
   const C = D?.compare ?? null;
   const rows = C ? C.rows.map((r) => ({ path: r.path, pay: r.pay ?? 0, shop: r.shop ?? 0, payHash: 'salted', shopHash: 'salted', hot: !r.match, delta: r.delta ?? 0,
     escaped: r.escaped_pay && !r.escaped_shop ? 'PayCo · \\uXXXX' : r.escaped_shop && !r.escaped_pay ? 'ShopCo · \\uXXXX' : '—' }))
@@ -726,9 +729,9 @@ function ByteDiff({ L, D, onClose }: { L: Layout; D?: StoryData | null; onClose?
   const cols = 'grid grid-cols-[240px_minmax(0,1fr)_minmax(0,1fr)_120px_108px_148px] items-center gap-4 px-8';
   return (
     <>
-      <motion.div className="cw-glass absolute inset-x-0 z-[7] bg-scrim" style={{ top: L.laneTop, height: L.laneH, ['--blur' as string]: '6px' }} {...M.byteDiff.scrim} exit={{ opacity: 0 }} onClick={onClose} />
+      <motion.div className="cw-glass absolute inset-x-0 z-[7] bg-scrim" style={{ top: L.laneTop, height: L.laneH, ['--blur' as string]: '6px' }} {...rm(M.byteDiff.scrim)} exit={{ opacity: 0 }} onClick={onClose} />
       <motion.section role="dialog" aria-label={`Notary byte comparison ${event}`} className="cw-glass absolute z-[8] overflow-hidden rounded-2xl bg-glass-modal shadow-e3"
-        style={{ ...abs(b.x, b.y, b.w, b.h), ['--blur' as string]: '28px', ['--sat' as string]: 1.4 }} {...M.byteDiff.panel} exit={{ opacity: 0, y: 8 }}>
+        style={{ ...abs(b.x, b.y, b.w, b.h), ['--blur' as string]: '28px', ['--sat' as string]: 1.4 }} {...rm(M.byteDiff.panel)} exit={{ opacity: 0, y: 8 }}>
         <div className="flex h-[104px] items-center gap-4 px-8">
           <Avatar size={44} role="neutral" agent glyph="seal" />
           <div className="min-w-0 flex-1"><div className="whitespace-nowrap text-[24px] font-semibold leading-8 tracking-[-0.02em]">Notary · byte comparison · <span className="font-mono text-[22px] font-medium">{event}</span></div><Meta className="mt-0.5 block">{C ? `${C.pay} × ${C.shop} · salted with ${C.salt} · ${clock(C.t)}` : 'D-PAY-1 × D-SHOP-1 · salted with inc_0001:7e2c…a91f · 10:45:14'}</Meta></div>
@@ -741,7 +744,7 @@ function ByteDiff({ L, D, onClose }: { L: Layout; D?: StoryData | null; onClose?
             const hot = r.hot;
             return (
               <motion.div key={r.path} variants={M.byteDiff.row} className={cx(cols, 'relative h-16 shadow-[inset_0_1px_0_var(--cw-line)]', hot ? 'bg-root-cause-tint' : 'text-fg2')}>
-                {hot && <motion.span className="absolute inset-x-0 top-0 h-px bg-seam shadow-seam" style={{ originX: 0 }} {...M.byteDiff.hotSeam} />}
+                {hot && <motion.span className="absolute inset-x-0 top-0 h-px bg-seam shadow-seam" style={{ originX: 0 }} {...rm(M.byteDiff.hotSeam)} />}
                 <span className={cx('whitespace-nowrap font-mono text-ui', hot ? 'text-fg' : 'text-fg2')}>{r.path}</span>
                 <ByteCell n={r.pay} hash={r.payHash} />
                 <ByteCell n={r.shop} hash={r.shopHash} />
@@ -751,12 +754,12 @@ function ByteDiff({ L, D, onClose }: { L: Layout; D?: StoryData | null; onClose?
             );
           })}
         </motion.div>
-        {(!C || C.explain) && <motion.div className="absolute inset-x-8 top-[604px] flex h-12 items-center gap-3 overflow-hidden rounded-lg bg-s2 px-3.5 shadow-e1" {...M.byteDiff.mediatorLine}>
+        {(!C || C.explain) && <motion.div className="absolute inset-x-8 top-[604px] flex h-12 items-center gap-3 overflow-hidden rounded-lg bg-s2 px-3.5 shadow-e1" {...rm(M.byteDiff.mediatorLine)}>
           <Avatar size={24} role="neutral" agent glyph="crosspt" /><Name small>mediator</Name>
           {C ? <span className="truncate text-message">{C.explain}</span> : <span className="text-message"><b className="font-semibold">+4 bytes per accented character:</b> <span className="font-mono text-[13px]">\uXXXX</span> escape (6 bytes) vs raw UTF-8 (2 bytes)</span>}
           {!C && <Meta className="ml-auto">10:45:16</Meta>}
         </motion.div>}
-        <motion.div className="absolute inset-x-0 bottom-0 flex h-[72px] items-center justify-between gap-4 bg-inset px-8 shadow-[inset_0_1px_0_var(--cw-line)]" {...M.byteDiff.footer}>
+        <motion.div className="absolute inset-x-0 bottom-0 flex h-[72px] items-center justify-between gap-4 bg-inset px-8 shadow-[inset_0_1px_0_var(--cw-line)]" {...rm(M.byteDiff.footer)}>
           <div className="flex min-w-0 items-center gap-3"><Icon name="shield" className="text-fg2" /><span className="whitespace-nowrap text-[15px] font-[550]">{C && !C.first ? 'No difference' : <>First difference: <span className="font-mono text-[14px]">{C?.first ?? 'data.customer.name'}</span></>} · values never left either company</span></div>
           <Meta>{rows.length} fields · {differs} differ{differs === 1 ? 's' : ''} · 0 values shown</Meta>
         </motion.div>
