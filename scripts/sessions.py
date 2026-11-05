@@ -12,6 +12,8 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 AGENTS = {"payco-agent": "payco", "shopco-agent": "shopco", "mediator": "mediator"}
+# Crosswire rooms each agent belongs to: Console runs (at most) one Claude Code session per room it's addressed in
+ROOMS_PER_AGENT = {"payco-agent": 2, "shopco-agent": 2, "mediator": 1}
 FOREIGN = ("spike-agent-a", "spike-agent-b", "switch-buddy-admin")   # must never be in the Crosswire rooms
 
 
@@ -37,6 +39,15 @@ def switch_sessions(gw: Any, agent_id: str) -> list[dict[str, Any]]:
     """Live sessions Switch reports for an agent (GET /gateway/agents/{id}: `sessions`)."""
     detail = gw.req("GET", f"/agents/{agent_id}")
     return [s for s in detail.get("sessions") or [] if s.get("state") == "live"]
+
+
+def per_room_duplicates(sw: list[dict[str, Any]]) -> dict[str, int]:
+    """Rooms in which Switch lists more than one live session for the agent (room name or id -> count)."""
+    by: dict[str, int] = {}
+    for s in sw:
+        key = s.get("room_name") or s.get("room_id") or "(no room: controller)"
+        by[key] = by.get(key, 0) + 1
+    return {k: v for k, v in by.items() if v > 1}
 
 
 def foreign_members(gw: Any, rooms: dict[str, str], names: dict[str, str]) -> list[str]:

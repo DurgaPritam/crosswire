@@ -16,7 +16,7 @@ n = 0
 def post(author: str, message: str, root: str = "") -> mmlib.Post:
     global n
     n += 1
-    return mmlib.Post(f"p{n}", "c", "u", author, "", message, root, 1000 + n, False, False)
+    return mmlib.Post(f"p{n}", "c", "u", author, "", message, root, 1000 + n, False, False, author not in ("priya", "sam"))  # agents post as bots
 
 
 def feed(driver: rh.Driver, items: list[tuple[str, mmlib.Post]]) -> list[rh.Action]:
@@ -125,3 +125,16 @@ def test_backfill_refusals_adds_only_missing_ones(tmp_path):
     assert rehearse.backfill_refusals(rec, [("payco-shopco-shared", post)]) == 0   # already there
     ev = json.loads(rec.read_text().splitlines()[-1])
     assert ev["kind"] == "refusal" and ev["by"] == "payco-agent" and ev["to"] == "shopco-agent" and ev["backfilled"] == "mattermost"
+
+
+
+def test_a_post_from_a_person_account_makes_the_run_not_clean() -> None:
+    """Decision 3: an agent message that arrives from a person's account (run 4's `admin` posts) fails the run."""
+    d = rh.Driver()
+    impostor = rh.mmlib.Post("px", "c", "u", "admin", "", "DRAFT D-SHOP-3: fingerprint of evt_0007", "", 9_999, False, False, False)
+    runs = CLEAN_RUN + [(rh.SHOP_IN, impostor)]
+    feed(d, runs)
+    g = rh.grade(runs, d, {"payco": "blocked: 0", "shopco": "blocked: 0"})
+    failed = [c for c in g.checks if not c[1]]
+    assert not g.clean and [c[0] for c in failed] == ["every agent post came from its agent's bot (no person's account but Priya's and Sam's)"]
+    assert "1 post(s) from admin" in failed[0][2]

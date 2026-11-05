@@ -103,7 +103,7 @@ class Runner:
 
 def replay_files() -> list[str]:
     files = sorted(FIXTURES.glob("*.events.jsonl")) + sorted(REHEARSALS.glob("*.events.jsonl"))
-    return [f.name for f in files]
+    return list(dict.fromkeys(f.name for f in files))  # a fixture copy of a rehearsal is listed once (fixtures win)
 
 
 def read_replay(name: str) -> list[dict[str, Any]] | None:

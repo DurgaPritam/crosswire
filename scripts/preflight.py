@@ -52,9 +52,6 @@ MEDIATOR_TASK = """@mediator PREFLIGHT (a setup check, not an incident). Use you
 3) Update it to `ok 2`. 4) Delete it. 5) Reply with one line per step: ok or failed (quote any error)."""
 
 
-SESSION_CHECK_STRICT = False
-
-
 class Check:
     def __init__(self) -> None:
         self.rows: list[tuple[str, bool, str]] = []
@@ -226,16 +223,17 @@ def main() -> int:
     for agent, ws in sessions.AGENTS.items():
         sw = sessions.switch_sessions(gw, ids[agent])
         loc = sessions.local_sessions(ws)
-        # SESSION_CHECK_STRICT: Console starts one session per room an agent is addressed in (and respawns them after
-        # restart-agent), so this is a WARN until the session model is decided; set it True to make it fail
-        (check if SESSION_CHECK_STRICT else check.warn)(
-              f"{agent} has exactly one live session (Switch: {len(sw)}, local Claude Code: {len(loc)})",
-              len(sw) == 1 and len(loc) <= 1,
-              "" if len(sw) == 1 and len(loc) <= 1 else
-              (f"local PIDs {', '.join(str(s['pid']) for s in loc)}: stop the extras with "
-               f"`scripts/restart-agent.sh workspace/{ws}` (Console starts one fresh session on the next mention); "
-               f"if Switch lists {len(sw)} live sessions, end the stale ones on the agent's page in Switch Console, "
-               "between runs"))
+        # at most one session per agent per room (hard): Switch's own sessions are grouped by room exactly; locally a
+        # process doesn't reveal its room without reading its command line (never), so the bound is the agent's rooms
+        dup = sessions.per_room_duplicates(sw)
+        limit = sessions.ROOMS_PER_AGENT[agent]
+        ok = not dup and len(loc) <= limit
+        check(f"{agent}: at most one session per room (Switch: {len(sw)}, local Claude Code: {len(loc)} of ≤{limit})", ok,
+              "" if ok else
+              (f"Switch lists several sessions in {', '.join(dup)}; " if dup else "") +
+              (f"local PIDs {', '.join(str(s['pid']) for s in loc)}: " if len(loc) > limit else "") +
+              f"BETWEEN runs, stop them with `scripts/restart-agent.sh workspace/{ws}` (Console starts one fresh session "
+              "per room on the next mention) and end stale sessions on the agent's page in Switch Console")
     foreign = sessions.foreign_members(gw, st["rooms"], {v: k for k, v in ids.items()})
     check("no spike agent or switch-buddy-admin in the Crosswire rooms", not foreign,
           "; ".join(foreign) + ": remove them from the room in Switch Console" if foreign else "")

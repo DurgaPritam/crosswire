@@ -67,7 +67,7 @@ console:
     cd console/web && ([ -d node_modules ] || npm ci --silent) && npm run build --silent
     cd console/server && ../../.venv/bin/python -m crosswire_console
 
-# Incident Console, Replay mode (plays console/fixtures/demo-run.events.jsonl; no Switch needed; ?replay=<file> picks another)
+# Incident Console, Replay mode (plays console/fixtures/demo-run.events.jsonl, rehearsal run 7; no Switch needed; ?replay=<file> picks another)
 console-replay:
     cd console/web && ([ -d node_modules ] || npm ci --silent) && npm run build --silent
     cd console/server && ../../.venv/bin/python -m crosswire_console --replay

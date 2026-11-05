@@ -38,3 +38,6 @@ docs/screenshots/design/
 **/path.log
 **/block.log
 spikes/agent-a/.claude/settings.json
+
+# Live-run screenshots (all milestones); only the README ones are copied to docs/screenshots/ and committed
+docs/screenshots/live/
