@@ -42,9 +42,13 @@ def get_verification_spec() -> dict[str, Any]:
 
 def main() -> None:
     hosts = [f"localhost:{PORT}", f"127.0.0.1:{PORT}", f"shopco-evidence:{PORT}"]
-    server.run("streamable-http", host="0.0.0.0", port=PORT, transport_security=TransportSecuritySettings(
+    import uvicorn
+
+    from .auth import require_token
+    app = server.streamable_http_app(host="0.0.0.0", transport_security=TransportSecuritySettings(
         enable_dns_rebinding_protection=True, allowed_hosts=hosts,
         allowed_origins=[f"http://{h}" for h in hosts]))
+    uvicorn.run(require_token(app), host="0.0.0.0", port=PORT, log_level="warning")
 
 
 if __name__ == "__main__":

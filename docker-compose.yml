@@ -38,6 +38,7 @@ services:
   # Evidence servers: each mounts ONLY its own company's private volume, read-only.
   payco-evidence:
     build: {context: ., dockerfile: evidence/payco-mcp/Dockerfile}
+    env_file: [{path: ./switch/state/payco-evidence.env, required: false}]   # EVIDENCE_TOKEN (just setup)
     ports: ["127.0.0.1:${PAYCO_EVIDENCE_PORT:-7101}:7101"]
     volumes:
       - "payco-data:/data/payco:ro"
@@ -46,6 +47,7 @@ services:
 
   shopco-evidence:
     build: {context: ., dockerfile: evidence/shopco-mcp/Dockerfile}
+    env_file: [{path: ./switch/state/shopco-evidence.env, required: false}]   # EVIDENCE_TOKEN (just setup)
     ports: ["127.0.0.1:${SHOPCO_EVIDENCE_PORT:-7102}:7102"]
     volumes: ["shopco-data:/data/shopco:ro"]
     depends_on: [shopco-app]

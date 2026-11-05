@@ -55,3 +55,5 @@ def test_rendered_settings(agent: str) -> None:
 def test_mcp_json_points_at_own_evidence_server_only(agent: str, port: int) -> None:
     servers = json.loads((WS / agent / ".mcp.json").read_text())["mcpServers"]
     assert [s["url"] for s in servers.values()] == [f"http://127.0.0.1:{port}/mcp"]  # not localhost: Node resolves it to ::1
+    tokens = json.loads((ROOT / "switch" / "state" / "evidence-tokens.json").read_text())   # gap 9
+    assert [s["headers"]["Authorization"] for s in servers.values()] == [f"Bearer {tokens[agent]}"]

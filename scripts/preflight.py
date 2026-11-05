@@ -125,6 +125,29 @@ def main() -> int:
         print("preflight FAILED early: start the services (just up)", flush=True)
         return 1
 
+    # gap 9: each evidence server refuses a request without its company's token, and accepts the agent's own token
+    import urllib.error, urllib.request
+    toks_file = ROOT / "switch" / "state" / "evidence-tokens.json"
+    toks = json.loads(toks_file.read_text()) if toks_file.exists() else {}
+    verdicts = []
+    for company, port in (("payco", 7101), ("shopco", 7102)):
+        def status(token: str | None) -> int:
+            req = urllib.request.Request(f"http://127.0.0.1:{port}/mcp", method="POST", data=b"{}",
+                                         headers={"Content-Type": "application/json", "Accept": "application/json, text/event-stream",
+                                                  **({"Authorization": f"Bearer {token}"} if token else {})})
+            try:
+                with urllib.request.urlopen(req, timeout=5) as r:
+                    return r.status
+            except urllib.error.HTTPError as e:
+                return e.code
+            except OSError:
+                return 0
+        other = toks.get("shopco" if company == "payco" else "payco")
+        verdicts.append((company, status(None), status(other) if other else 0, status(toks.get(company)) if toks.get(company) else 0))
+    ok = bool(toks) and all(none == 401 and wrong == 401 and own not in (0, 401) for _c, none, wrong, own in verdicts)
+    check("evidence servers need their own company's token (none or the other company's token: 401)", ok,
+          "; ".join(f"{c}: none={a} other={b} own={o}" for c, a, b, o in verdicts) if toks else "no switch/state/evidence-tokens.json (just setup)")
+
     pins_file = ROOT / "switch" / "state" / "pins.json"
     pins = json.loads(pins_file.read_text()) if pins_file.exists() else {}
     import hashlib, stat

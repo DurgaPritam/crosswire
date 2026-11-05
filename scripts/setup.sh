@@ -148,6 +148,34 @@ render_settings payco shopco
 render_settings shopco payco
 render_settings mediator ""
 
+# Per-company evidence-server tokens (gap 9): made once, kept across resets in the gitignored switch/state/. Each agent's
+# .mcp.json sends its own company's token; each evidence container gets its token from switch/state/<company>-evidence.env.
+python3 - "$ROOT" "$WS" <<'PY'
+import json, os, secrets, sys
+from pathlib import Path
+root, ws = Path(sys.argv[1]), Path(sys.argv[2])
+state = root / "switch" / "state"; state.mkdir(parents=True, exist_ok=True)
+f = state / "evidence-tokens.json"
+tokens = json.loads(f.read_text()) if f.exists() else {}
+for company in ("payco", "shopco"):
+    tokens.setdefault(company, secrets.token_urlsafe(32))
+old = os.umask(0o077)
+try:
+    f.write_text(json.dumps(tokens))
+    for company, tok in tokens.items():
+        (state / f"{company}-evidence.env").write_text(f"EVIDENCE_TOKEN={tok}\n")
+finally:
+    os.umask(old)
+for company in ("payco", "shopco"):
+    m = ws / company / ".mcp.json"
+    if m.exists():
+        cfg = json.loads(m.read_text())
+        for srv in cfg.get("mcpServers", {}).values():
+            srv["headers"] = {"Authorization": f"Bearer {tokens[company]}"}
+        m.write_text(json.dumps(cfg, indent=2) + "\n")
+print("  evidence tokens: each company's .mcp.json carries its own (switch/state/evidence-tokens.json)")
+PY
+
 # Pin every agent's controls (guards, settings, MCP config, playbook, room ids) and make them immutable. The guards
 # check these pins on every call and fail closed on a mismatch; preflight checks them between runs.
 python3 - "$ROOT" "$WS" <<'PY'
