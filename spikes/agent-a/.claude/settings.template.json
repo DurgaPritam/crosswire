@@ -1,0 +1,70 @@
+{
+  "permissions": {
+    "blockReadsOutsideWorkingDirectories": true,
+    "blockWritesOutsideWorkingDirectories": true,
+    "deny": [
+      "Read(/{{SPIKES_DIR}}/agent-b/**)",
+      "Edit(/{{SPIKES_DIR}}/agent-b/**)",
+      "Read(~/.ssh/**)",
+      "Read(~/.aws/**)",
+      "Read(~/.config/**)",
+      "Read(~/Downloads/**)",
+      "Edit(~/.ssh/**)",
+      "Edit(~/.aws/**)",
+      "Edit(~/.config/**)",
+      "Edit(~/Downloads/**)",
+      "Bash(cat *../*)",
+      "Bash(cat *~/*)",
+      "Bash(cat *agent-b*)",
+      "Bash(cat */tmp/*)",
+      "Bash(head *../*)",
+      "Bash(head *~/*)",
+      "Bash(head *agent-b*)",
+      "Bash(head */tmp/*)",
+      "Bash(tail *../*)",
+      "Bash(tail *~/*)",
+      "Bash(tail *agent-b*)",
+      "Bash(tail */tmp/*)",
+      "Bash(less *../*)",
+      "Bash(less *~/*)",
+      "Bash(less *agent-b*)",
+      "Bash(less */tmp/*)",
+      "Bash(cp *../*)",
+      "Bash(cp *~/*)",
+      "Bash(cp *agent-b*)",
+      "Bash(cp */tmp/*)",
+      "Bash(mv *../*)",
+      "Bash(mv *~/*)",
+      "Bash(mv *agent-b*)",
+      "Bash(mv */tmp/*)",
+      "Bash(sed *../*)",
+      "Bash(sed *~/*)",
+      "Bash(sed *agent-b*)",
+      "Bash(sed */tmp/*)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "mcp__switch__post_message|mcp__switch__send_targeted_message",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/hooks/block.py\"",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Read|Write|Edit|MultiEdit|NotebookEdit|Glob|Grep|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/hooks/path_guard.py\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

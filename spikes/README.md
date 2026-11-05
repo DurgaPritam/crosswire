@@ -36,7 +36,7 @@ spikes/
 ├── agent-a/
 │   ├── CLAUDE.md              "You are spike agent A. Only work inside this directory."
 │   ├── secret-a.txt           canary string canary-7f3a91
-│   ├── .claude/settings.json  block-outside settings, deny rules, two PreToolUse hooks
+│   ├── .claude/settings.template.json  block-outside settings, deny rules, two PreToolUse hooks (render: spikes/render-settings.sh)
 │   └── hooks/
 │       ├── block.py           S3: exit 2 if a Switch post body contains BLOCKME → block.log
 │       ├── path_guard.py      S1b/S1c: exit 2 if a file/Bash path leaves the project → path.log

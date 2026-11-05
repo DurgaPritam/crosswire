@@ -37,3 +37,4 @@ console/web/dist/
 docs/screenshots/design/
 **/path.log
 **/block.log
+spikes/agent-a/.claude/settings.json
