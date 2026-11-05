@@ -1,0 +1,3 @@
+#!/bin/sh
+# ShopCo's test suite, as one allowed command for the agent (`./bin/test`).
+cd "$(dirname "$0")/../app" && exec npm test --silent

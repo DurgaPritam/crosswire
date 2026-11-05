@@ -17,7 +17,9 @@ from dataclasses import dataclass
 from typing import Any
 
 D_ID = re.compile(r"\bD-(PAY|SHOP)-(\d+)\b")
-HEADER = re.compile(r"^\s*\[(D-(?:PAY|SHOP)-\d+)\s*[·|\-:]\s*approved by @([A-Za-z0-9._-]+)\]\s*$", re.M)
+# A targeted message (send_targeted_message) arrives prefixed with the role mention, e.g.
+# "@incident-commander [D-SHOP-3 · approved by @sam]", so leading @mentions are allowed on the header line.
+HEADER = re.compile(r"^\s*(?:@[A-Za-z0-9._-]+[\s,:]*)*\[(D-(?:PAY|SHOP)-\d+)\s*[·|\-:]\s*approved by @([A-Za-z0-9._-]+)\]\s*$", re.M)
 FIELD = re.compile(r"^\s*(type|event|salt)\s*:\s*(\S+)\s*$", re.M)
 JSON_BLOCK = re.compile(r"```(?:json)?\s*\n(.*?)\n\s*```", re.S)
 

@@ -1,0 +1,4 @@
+#!/bin/sh
+# PayCo's test suite, as one allowed command for the agent (`./bin/test`, extra args go to pytest).
+# A dedicated script keeps auto mode from prompting: running the venv's python directly reads outside the working dir.
+cd "$(dirname "$0")/../api" && exec ../.venv/bin/python -m pytest -q "$@"

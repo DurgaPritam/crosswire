@@ -32,3 +32,6 @@ docs/design/crosswire-handoff.zip
 console/server/.state.json
 console/web/node_modules/
 console/web/dist/
+
+# Console design QA working output (README screenshots are copied out and compressed)
+docs/screenshots/design/

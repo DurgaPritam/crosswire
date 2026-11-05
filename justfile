@@ -58,6 +58,16 @@ guard-stats company="payco":
 restart-agent dir:
     d="{{dir}}"; ./scripts/restart-agent.sh "${d#dir=}"
 
+# Incident Console, Live mode (observer + guard logs), http://127.0.0.1:7300 (builds the web app first)
+console:
+    cd console/web && ([ -d node_modules ] || npm ci --silent) && npm run build --silent
+    cd console/server && ../../.venv/bin/python -m crosswire_console
+
+# Incident Console, Replay mode (plays console/fixtures/demo-run.events.jsonl; no Switch needed; ?replay=<file> picks another)
+console-replay:
+    cd console/web && ([ -d node_modules ] || npm ci --silent) && npm run build --silent
+    cd console/server && ../../.venv/bin/python -m crosswire_console --replay
+
 # Health checklist for the whole system
 doctor:
     @echo "not built yet: Phase 10"

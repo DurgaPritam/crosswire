@@ -232,8 +232,8 @@ class Notary:
         if message_id and message_id in self.state.handled:
             log(f"already answered {message_id}; skipping")
             return
-        reply = await self.respond(room_id, payload.get("body") or "")
         thread = payload.get("thread_id") or message_id
+        reply = await self.respond(room_id, payload.get("body") or "", thread)
         for attempt in (1, 2):  # always (re)bind the room first: a cached binding can be gone server-side
             await self.client.op("connect_to_room", room_id=room_id, include_general_instructions=False)
             self.current_room = room_id
@@ -249,10 +249,10 @@ class Notary:
             self.state.handled.append(message_id)
             self.state.save()
 
-    async def respond(self, room_id: str, body: str) -> str:
+    async def respond(self, room_id: str, body: str, thread: str | None = None) -> str:
         m = COMPARE.search(body)
         if m:
-            return await self.compare(room_id, m.group(1).upper(), m.group(2).upper())
+            return await self.compare(room_id, m.group(1).upper(), m.group(2).upper(), thread)
         s = SALT_RE.search(body)
         if s:
             return self.salt(s.group(1).upper())
@@ -268,12 +268,12 @@ class Notary:
         return (f"Salt for {incident}: `{self.state.salts[incident]}`. "
                 "Every fingerprint in this incident must use exactly this salt.")
 
-    async def compare(self, room_id: str, first: str, second: str) -> str:
+    async def compare(self, room_id: str, first: str, second: str, thread: str | None = None) -> str:
         sides = {side_of(first): first, side_of(second): second}
         if set(sides) != {"PAY", "SHOP"}:
             return f"I compare one PayCo and one ShopCo disclosure; got {first} and {second}."
         pay_id, shop_id = sides["PAY"], sides["SHOP"]
-        found = await self.find_disclosures(room_id, {pay_id, shop_id})
+        found = await self.find_disclosures(room_id, {pay_id, shop_id}, thread)
         problems = []
         for d_id in (pay_id, shop_id):
             item = found.get(d_id)
@@ -288,8 +288,12 @@ class Notary:
         except DisclosureError as exc:
             return f"Can't compare: {exc}."
 
-    async def find_disclosures(self, room_id: str, wanted: set[str]) -> dict[str, Disclosure | DisclosureError]:
-        """Latest occurrence of each wanted D-id in the room (read_context, newest pages first)."""
+    async def find_disclosures(self, room_id: str, wanted: set[str], thread: str | None = None) -> dict[str, Disclosure | DisclosureError]:
+        """Latest occurrence of each wanted D-id, preferring the compare request's own thread.
+
+        D-ids restart with every incident, so a same-named disclosure from an earlier, closed thread must not win
+        over the one in this incident's thread: entries in `thread` are searched first, the rest of the room after.
+        """
         found: dict[str, Disclosure | DisclosureError] = {}
         before: str | None = None
         for _ in range(READ_CONTEXT_PAGES):
@@ -297,8 +301,9 @@ class Notary:
             if before is not None:
                 args["before"] = before
             ctx = await self.client.op("read_context", **args) or {}
-            entries = [e for t in ctx.get("threads", []) for e in [t.get("root"), *t.get("replies", [])] if e]
-            for entry in sorted(entries, key=lambda e: e.get("timestamp") or 0, reverse=True):
+            entries = [(thread is not None and (t.get("root") or {}).get("id") == thread, e)
+                       for t in ctx.get("threads", []) for e in [t.get("root"), *t.get("replies", [])] if e]
+            for _, entry in sorted(entries, key=lambda x: (x[0], x[1].get("timestamp") or 0), reverse=True):
                 for d_id in find_in(entry.get("body") or ""):
                     if d_id in wanted and d_id not in found:
                         try:

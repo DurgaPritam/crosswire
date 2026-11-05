@@ -37,7 +37,7 @@ ROOM_NAMES = {"payco-internal": "payco-internal", "shopco-internal": "shopco-int
               "payco-shopco-shared": "payco-shopco-shared"}
 PEOPLE = {"priya": "Priya (PayCo)", "sam": "Sam (ShopCo)"}
 AGENT_NAMES = ["payco-agent", "shopco-agent", "mediator", "notary"]
-STEPS = ["users", "notary", "template", "rooms", "claims", "policies", "roles", "smoke", "instructions"]
+STEPS = ["users", "notary", "template", "rooms", "claims", "policies", "roles", "smoke", "instructions", "observer"]
 
 
 def say(msg: str) -> None:
@@ -404,6 +404,41 @@ def step_instructions(gw: Gateway, e: dict[str, str], st: dict[str, Any]) -> Non
         say(f"instructions {name}: synced from {playbooks[name]}")
     if not drift:
         say("instructions: all three managed agents match their AGENT.md")
+
+
+def step_observer(gw: Gateway, e: dict[str, str], st: dict[str, Any]) -> None:
+    """The Incident Console's listener: an always_on agent in all three rooms that admits nobody and never posts."""
+    creds = ROOT / "console/server/.credentials.json"
+    if not creds.exists():
+        key = gw.req("POST", "/api-keys", {"label": "crosswire console observer registration"})
+        token = key.get("key")
+        if not token:
+            raise GatewayError(f"api-keys returned no key (fields: {sorted(key)})")
+        body = {"name": "console-observer", "display_name": "Console observer",
+                "description": "Read-only listener for the Crosswire Incident Console. Never posts; admits nobody.",
+                "connector_type": "crosswire-console-observer",
+                "integration_profile": {"connection_model": "always_on", "message_exchange": True,
+                                        "pre_invocation_mediation": [], "post_invocation_mediation": [], "event_reporting": []},
+                "metadata": {"project": "crosswire"}, "overwrite": False}
+        import httpx
+        r = httpx.post(e["SWITCH_BRIDGE_URL"] + "/agents", json=body, headers={"Authorization": f"Bearer {token}"}, timeout=30)
+        if r.status_code not in (200, 201):
+            raise GatewayError(f"observer registration failed: HTTP {r.status_code} {r.text[:200]}")
+        d = r.json()
+        creds.write_text(json.dumps({"id": d["id"], "api_key": d["api_key"], "bridge_url": e["SWITCH_BRIDGE_URL"],
+                                     "name": "console-observer"}, indent=1))
+        os.chmod(creds, 0o600)
+        say(f"observer registered ({d['id']}); credentials saved to console/server/.credentials.json (mode 600)")
+    oid = json.loads(creds.read_text())["id"]
+    st["observer_id"] = oid
+    # one rule with every dimension empty = nobody may address it ("no rules at all" would mean open)
+    gw.req("PUT", f"/agents/{oid}/addressing-policy", {"policy": {"rules": [_rule([], [], [])]}})
+    for key, room in st["rooms"].items():
+        try:
+            gw.req("POST", f"/rooms/{room}/agents", {"agent_ids": [oid]})
+            say(f"observer added to #{key}")
+        except GatewayError as exc:
+            say(f"observer #{key}: {str(exc)[:160]}")
 
 
 def plan() -> None:

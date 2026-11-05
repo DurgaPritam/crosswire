@@ -2,6 +2,11 @@
 
 > Debug integrations across company lines without sharing code.
 
+![Crosswire architecture: PayCo and ShopCo each keep code and data in their own private room; only approved, salted
+fingerprints cross into the shared room, where the mediator runs the incident and the notary compares bytes.](design/diagram/crosswire-architecture-1600x900.png)
+
+<sub>Vector version: [design/diagram/crosswire-architecture-1600x900.svg](design/diagram/crosswire-architecture-1600x900.svg).</sub>
+
 ## The concept
 
 PayCo (an API provider) sends signed webhooks to ShopCo (its customer). Signatures fail **only for customers with accented names**:

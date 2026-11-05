@@ -205,6 +205,8 @@
       "WebSearch"
     ],
     "allow": [
+      "Bash(./bin/test *)",
+      "Bash(./bin/test)",
       "Bash(git status*)",
       "Bash(git diff*)",
       "Bash(git log*)",

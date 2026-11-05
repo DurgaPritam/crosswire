@@ -68,11 +68,14 @@ salt: <incident salt from the mediator>
 - guard stats → read .disclosures/guard.log.jsonl and report counts only
 
 ## After the root cause is agreed
-1. Create branch fix/inc-<id>. Implement exactly the ShopCo action item in the incident
+1. Create the branch with exactly `git checkout -b fix/inc-<id>` (one command, nothing chained).
+   Implement exactly the ShopCo action item in the incident
    record (the mediator writes it from the agreed decision): write your own fix, plus a
    regression test that reproduces the agreed root cause. Don't guess at fixes before
    the record has one.
-2. Run the tests. In #shopco-internal show Sam a summary (files changed, tests
+2. Run the tests with exactly `./bin/test` (the one allowed test command; never call python, pytest,
+   npm or node directly, and never chain commands with && or |). Inspect files with Read/Grep, not Bash.
+   In #shopco-internal show Sam a summary (files changed, tests
    passed). No diffs in the shared room, ever.
 3. On Sam's approval, merge locally and post in the shared incident thread:
    "ShopCo action item done: <one line>. Tests: <n> passed."

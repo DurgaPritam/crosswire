@@ -9,7 +9,7 @@
 4. Each agent does its critical actions with its normal tools, and NOTHING asks for permission:
    - payco-agent / shopco-agent (asked by Priya / Sam in their private room): write an approval file, call an
      evidence tool, post a DRAFT in the private room, hop to the shared room and post, try the DRAFT there (the
-     guard must block it: rule g), hop back.
+     guard must block it: rule g), hop back, run ./bin/test (the fix phase's test command).
    - mediator (asked by Priya in the shared room): `@notary salt INC-9999`, create, update and delete a room
      document named PREFLIGHT.
    Any "Permission needed" post fails the preflight (fix the settings or give the agent an allowed tool).
@@ -43,7 +43,8 @@ COMPANY_TASK = """PREFLIGHT (a setup check, not an incident). Use your normal to
 3) Post exactly `DRAFT {p}-0: preflight check` in this room.
 4) connect_to_room to #payco-shopco-shared, post exactly `PREFLIGHT hop ok from {agent}`, then try to post
    `DRAFT {p}-0: preflight check` there too (your guard should block that: expected), then connect_to_room back here.
-5) Reply here with one line per step: ok or failed (quote any error)."""
+5) Run exactly `./bin/test` with Bash (your one test command) and note only the number of tests passed.
+6) Reply here with one line per step: ok or failed (quote any error)."""
 MEDIATOR_TASK = """@mediator PREFLIGHT (a setup check, not an incident). Use your normal tools:
 1) Post `@notary salt INC-9999` here. 2) Create a room document named PREFLIGHT with content `ok`.
 3) Update it to `ok 2`. 4) Delete it. 5) Reply with one line per step: ok or failed (quote any error)."""
@@ -171,6 +172,9 @@ def main() -> int:
               and _guard_blocked_room(ws))
         report = " ".join(m.message for m in mmlib.real(posts_by_room[room], agent))
         step2 = re.search(r"\b2\)\s*(ok|failed)\b[^\n]*", report, re.I)   # the agent's own verdict for step 2
+        step5 = re.search(r"\b5\)\s*(ok|failed)\b[^\n]*", report, re.I)
+        check(f"{agent} ran ./bin/test without a prompt", bool(step5) and step5.group(1).lower() == "ok",
+              _short(step5.group(0) if step5 else report))
         check(f"{agent} called its evidence tool", bool(step2) and step2.group(1).lower() == "ok" and bool(re.search(r"\b6\b", step2.group(0))),
               _short(step2.group(0) if step2 else report))
     med = " ".join(m.message for m in mmlib.real(posts_by_room[SHARED], "mediator"))

@@ -77,3 +77,34 @@ def test_sse_parser_handles_chunking_comments_and_crlf() -> None:
     assert [(f.event, f.id) for f in frames] == [("message", "7"), ("gap", None)]
     assert frames[0].data == {"type": "message", "sequence": 7}
     assert frames[1].data == {"reason": "x"}
+
+
+def test_header_after_role_mention():
+    """send_targeted_message prefixes the role mention; the disclosure must still parse."""
+    from notary.disclosures import HEADER
+    body = "@incident-commander [D-SHOP-3 · approved by @sam]\ntype: verifier_fingerprint\n"
+    assert [m.group(1) for m in HEADER.finditer(body)] == ["D-SHOP-3"]
+    assert not list(HEADER.finditer("please repost `[D-SHOP-3 · approved by @sam]` plainly"))
+
+
+def test_find_prefers_the_compare_threads_disclosure(tmp_path):
+    """D-ids restart per incident: a same-named disclosure from an older thread must not win (rehearsal run 3)."""
+    import asyncio
+
+    from notary.agent import Notary, State
+
+    stale = pay_disclosure(salt="inc-0001-00000000")
+    current = "@incident-commander " + pay_disclosure()
+
+    class Client:
+        async def op(self, name, **args):
+            return {"threads": [
+                {"root": {"id": "old-root", "body": "INC-0001 (previous run)", "timestamp": 1},
+                 "replies": [{"id": "old", "body": stale, "timestamp": 50}]},
+                {"root": {"id": "cur-root", "body": "INC-0001", "timestamp": 10},
+                 "replies": [{"id": "cur", "body": current, "timestamp": 20}]},
+            ], "truncated": False, "oldest_timestamp": 0}
+
+    n = Notary(Client(), State(tmp_path / "s.json"))  # type: ignore[arg-type]
+    found = asyncio.run(n.find_disclosures("room", {"D-PAY-1"}, "cur-root"))
+    assert found["D-PAY-1"].salt == SALT and found["D-PAY-1"].message_id == "cur"
