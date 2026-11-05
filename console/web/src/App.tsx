@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Console } from './console/Console';
 import type { Breakpoint, Scene, Theme } from './console/types';
 import { fetchConfig, type ServerConfig, useLive, useReplay } from './data/source';
+import { SecurityView } from './security/SecurityView';
 
 const SIZES: Record<Breakpoint, [number, number]> = { w1920: [1920, 1080], w1440: [1440, 900], w1280: [1280, 800], tablet: [834, 1194] };
 const SCENES: Scene[] = ['live', 'refusal', 'bytediff', 'payco', 'ledger', 'guard', 'finale', 'loading', 'empty', 'replay', 'present'];
@@ -17,6 +18,7 @@ function params() {
     at: q.get('at') ? Number(q.get('at')) : null,                  // replay: start at this many seconds (screenshots)
     speed: (Number(q.get('speed')) || 2) as 1 | 2 | 4,
     present: q.get('present') === '1',
+    security: q.get('view') === 'security',                        // read-only red-team scorecards
   };
 }
 
@@ -37,6 +39,11 @@ function Fit({ bp, children }: { bp: Breakpoint; children: React.ReactNode }) {
 
 export default function App() {
   const P = useMemo(params, []);
+  if (P.security) return <SecurityView theme={P.theme} />;
+  return <ConsoleApp P={P} />;
+}
+
+function ConsoleApp({ P }: { P: ReturnType<typeof params> }) {
   const bp = useBreakpoint(P.bp);
   const [scene, setScene] = useState<Scene>(P.designScene ?? (P.present ? 'present' : 'live'));
   const [cfg, setCfg] = useState<ServerConfig | null>(null);
