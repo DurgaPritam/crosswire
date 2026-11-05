@@ -718,7 +718,7 @@ function Rail({ L, D }: { L: Layout; D?: StoryData | null }) {
 function ByteDiff({ L, D, onClose }: { L: Layout; D?: StoryData | null; onClose?: () => void }) {
   const b = L.byteDiff;
   const reduce = useReducedMotion();
-  // reduced motion: every entrance is a 120 ms crossfade with no delay (H§6), so the final state shows at once
+  // reduced motion: every entrance is a 120 ms crossfade with no delay, so the final state shows at once
   const rm = <T extends object>(x: T) => (reduce ? { initial: { opacity: 0 }, animate: { opacity: 1 }, transition: reduced } : x);
   const C = D?.compare ?? null;
   const rows = C ? C.rows.map((r) => ({ path: r.path, pay: r.pay ?? 0, shop: r.shop ?? 0, payHash: 'salted', shopHash: 'salted', hot: !r.match, delta: r.delta ?? 0,

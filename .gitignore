@@ -25,10 +25,9 @@ neutral/notary/.state.json
 neutral/notary/.state.tmp
 switch/state/
 
-# Claude Design render set and runtime kit: regenerate with docs/design/README.md (kept out of git, ~32 MB)
+# Design render set and canvas kit used for visual QA (kept out of git, ~32 MB)
 docs/design/renders/
 docs/design/crosswire-renders.zip
-docs/design/crosswire-handoff.zip
 console/server/.state.json
 console/web/node_modules/
 console/web/dist/

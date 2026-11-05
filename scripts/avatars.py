@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Set the design avatars (docs/design/crosswire-handoff/assets/png/avatar-*-512.png) as Mattermost profile images.
+"""Set the design avatars (docs/design/avatars/avatar-*-512.png) as Mattermost profile images.
 
     .venv/bin/python scripts/avatars.py            # agents' bot accounts + priya and sam
 
@@ -20,7 +20,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 import mmlib  # noqa: E402
 
-PNG = ROOT / "docs/design/crosswire-handoff/assets/png"
+PNG = ROOT / "docs/design/avatars"
 WHO = ["payco-agent", "shopco-agent", "mediator", "notary", "priya", "sam"]
 
 

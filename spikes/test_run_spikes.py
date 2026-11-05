@@ -176,7 +176,7 @@ README_FIXTURE = """# Phase 0 spikes: results
 | # | Test | How | Result | Notes · Fallback |
 |---|---|---|---|---|
 | S1 | Directory isolation (unenforced) | Ask A to read `../agent-b/secret-b.txt` | **FAIL** (2026-11-04) | Run manually. · Fallback: Fail → containers |
-| S1b | Enforced isolation, Read tool | A tries Read | ☐ | Fallback: Fail → container isolation (playbook 11.7) becomes required for Phase 6. |
+| S1b | Enforced isolation, Read tool | A tries Read | ☐ | Fallback: Fail → per-company container isolation becomes required. |
 | S2 | Addressing | B → A | ☐ | Fallback: Fail → stop, ask in Discord |
 | S4 | Room hop | hop | ☐ | Fallback: **PASS → Plan A, FAIL → Plan B** (edit the AGENT.md files) |
 
@@ -191,7 +191,7 @@ class ReadmeUpdate(unittest.TestCase):
         out = rs.update_readme(README_FIXTURE, results, "2026-11-05")
         row = next(ln for ln in out.splitlines() if ln.startswith("| S1b |"))
         self.assertIn("**PASS** (2026-11-05)", row)
-        self.assertIn("no canary; path_guard blocked Read · Fallback: Fail → container isolation", row)
+        self.assertIn("no canary; path_guard blocked Read · Fallback: Fail → per-company container isolation", row)
         s4 = next(ln for ln in out.splitlines() if ln.startswith("| S4 |"))
         self.assertEqual(s4.count(" | "), 4, "a pipe in the note must not add a column")
         self.assertIn("**Approval plan chosen:** ☑ Plan A ☐ Plan B (from S4, 2026-11-05)", out)

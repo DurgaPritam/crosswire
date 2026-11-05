@@ -28,4 +28,4 @@
 - Cut to SCRIPT.md (2:45 target, 3:00 hard cap). PiP Mattermost at about 30% width, bottom right, with a 16 px margin.
 - Export H.264 MP4, 1920×1080, 60 fps (30 is fine if the source is 30), AAC 48 kHz stereo.
 - Upload to YouTube as **Unlisted**. Title "Crosswire: two companies debug a bug without sharing code (Flip the
-  Switch)". Add the repo link in the description. Paste the URL into docs/SUBMISSION.md and the README.
+  Switch)". Add the repo link in the description. Paste the URL into the README.

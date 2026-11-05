@@ -1,5 +1,5 @@
 // Design QA: screenshots the Console's design mode (?scene=&theme=&bp=) at every scene × theme × breakpoint and
-// pixel-diffs each against the renders in docs/design/renders/ (ground truth; regenerate per docs/design/README.md).
+// pixel-diffs each against the renders in docs/design/renders/ (ground truth; the render set is kept out of git).
 //   node scripts/shoot.mjs [filter]      (Console server on http://127.0.0.1:7300; writes docs/screenshots/design/)
 // 1920 frames are also compared with docs/design/renders/local/ when present: the same kit sources re-rendered on this
 // machine (node batch.js <dir> console-). The handoff PNGs were rendered elsewhere; kit-vs-kit differs by ~0.3–0.46 %.
@@ -53,7 +53,7 @@ for (const [s, scene] of Object.entries(SCENES)) for (const theme of ['dark', 'l
   const ref = reference(s, theme, bp);
   if (!fs.existsSync(ref)) { rows.push([name, 'no reference', '']); continue; }
   // Presentation mode is always a 1920×1080 frame; below it (tablet viewport) the kit page is unstyled white,
-  // so only the frame area is compared there (COVERAGE.md: intentional difference).
+  // so only the frame area is compared there (an intentional difference).
   const H = scene === 'present' ? Math.min(h, 1080) : h;
   const pct = compare(file, ref, H, path.join(OUT, 'diff', `${name}.png`));
   if (pct === null) { rows.push([name, 'size mismatch', '']); continue; }

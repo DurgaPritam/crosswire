@@ -649,7 +649,7 @@ def main(argv: list[str] | None = None) -> int:
     for r in results:
         print(f"  {r.test:4} {r.status:8} {r.note}")
     print(f"\nTranscript: {transcript}\nREADME updated: {README}")
-    print("Review the transcript, then tick Phase 0 in docs/PROGRESS.md yourself.")
+    print("Review the transcript in spikes/results-<timestamp>.md.")
     return 0 if all(r.status == "PASS" for r in results) else 1
 
 
