@@ -130,16 +130,28 @@ def repo_lines(root: Path) -> set[str]:
 
 
 def approved_ids(root: Path) -> set[str]:
+    """Approved D-ids: one .disclosures/approvals/<D-id>.json per decision (written with the Write tool, so no shell
+    is needed), plus the older append-only .disclosures/ledger.jsonl. The latest decision per id wins."""
     ledger = root / ".disclosures" / "ledger.jsonl"
-    latest: dict[str, str] = {}
+    latest: dict[str, tuple[str, str]] = {}
+    for f in sorted((root / ".disclosures" / "approvals").glob("D-*.json")):
+        try:
+            entry = json.loads(f.read_text(encoding="utf-8"))
+            d_id = str(entry.get("id") or f.stem)
+            if d_id == f.stem:
+                latest[d_id] = (str(entry.get("ts", "")), str(entry.get("status", "")))
+        except (OSError, ValueError, AttributeError):
+            continue
     if ledger.exists():
         for raw in ledger.read_text(encoding="utf-8").splitlines():
             try:
                 entry = json.loads(raw)
-                latest[str(entry["id"])] = str(entry.get("status", ""))
+                ts, d_id = str(entry.get("ts", "")), str(entry["id"])
+                if d_id not in latest or ts >= latest[d_id][0]:
+                    latest[d_id] = (ts, str(entry.get("status", "")))
             except (ValueError, KeyError, TypeError):
                 continue
-    return {d for d, status in latest.items() if status == "approved"}
+    return {d for d, (_ts, status) in latest.items() if status == "approved"}
 
 
 def current_room(root: Path) -> str | None:

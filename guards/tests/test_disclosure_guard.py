@@ -225,3 +225,16 @@ def test_g_approved_disclosure_allowed_in_shared_room(repo: Path) -> None:
 def test_g_track_room_never_blocks(repo: Path) -> None:
     assert track(repo, "room-shared").returncode == 0
     assert (repo / ".disclosures" / "current_room").read_text() == "room-shared"
+
+
+def test_e_approval_files_written_with_the_write_tool(repo: Path) -> None:
+    d = repo / ".disclosures" / "approvals"
+    d.mkdir(parents=True)
+    blocked(guard(repo, DISCLOSURE), "unapproved")
+    (d / "D-PAY-1.json").write_text(json.dumps({"id": "D-PAY-1", "ts": "2026-11-05T10:00:00Z", "approved_by": "priya",
+                                                 "status": "approved"}))
+    assert guard(repo, DISCLOSURE).returncode == 0
+    (d / "D-PAY-1.json").write_text(json.dumps({"id": "D-PAY-1", "ts": "2026-11-05T10:05:00Z", "status": "denied"}))
+    blocked(guard(repo, DISCLOSURE), "unapproved")
+    (d / "D-PAY-2.json").write_text(json.dumps({"id": "D-PAY-1", "status": "approved"}))   # id must match the file name
+    blocked(guard(repo, DISCLOSURE.replace("D-PAY-1", "D-PAY-2")), "unapproved")

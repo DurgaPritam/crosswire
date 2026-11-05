@@ -1,0 +1,35 @@
+reset: just reset && just up && just simulate
+sent 60 events (evt_0001..evt_0060); ShopCo responses: 202×54, 401×6
+no Claude Code session running in ~/Documents/Hackathon/switch/crosswire/workspace/payco (next mention starts a fresh one)
+no Claude Code session running in ~/Documents/Hackathon/switch/crosswire/workspace/shopco (next mention starts a fresh one)
+no Claude Code session running in ~/Documents/Hackathon/switch/crosswire/workspace/mediator (next mention starts a fresh one)
+  #payco-shopco-shared sam: @mediator PayCo webhooks have been failing our signature check since Tuesday. Not all of them, some.
+  #payco-shopco-shared mediator: **Turn interrupted. Worked for 49m 38s. 2 tool calls. 1 step left unfinished.** ✗ 1 failed
+  #payco-shopco-shared mediator: **Closed** · request `A1` Generate incident salt `python3 -c "import secrets;print('inc-0001-'+secrets.token_hex(4))"` Cancelled before it was answere
+  #payco-shopco-shared mediator: **INC-0001** opened: some PayCo webhooks have been failing ShopCo's signature check since Tuesday. Not all of them, only some. Next: I'll start the in
+  #payco-shopco-shared mediator: 📄 created room document “INC-0001”.
+  #payco-shopco-shared mediator: @notary salt INC-0001
+  #payco-shopco-shared notary: Salt for INC-0001: `inc-0001-0260ab39`. Every fingerprint in this incident must use exactly this salt.
+  #payco-shopco-shared mediator: @consumer-responder INC-0001 request for ShopCo, as a disclosure approved by Sam: (1) the ids of the failing events since Tuesday, (2) your verificati
+  #payco-shopco-shared mediator: @provider-responder INC-0001 request for PayCo, as a disclosure approved by Priya: (1) a summary of the failure pattern (what the failing events have 
+  #payco-shopco-shared payco-agent: On it. Pulling PayCo's failure summary and signing spec now; both go to Priya for approval before I post them here.
+  #payco-shopco-shared shopco-agent: ShopCo has both items ready (failing event ids and verification spec). Drafting them now as D-SHOP-1 and D-SHOP-2 for Sam's approval; will post here o
+  #shopco-internal shopco-agent: Heads-up: I just took this room over from another shopco-agent session on this machine, so anything that session was doing here may have been cut off.
+  #shopco-internal shopco-agent: DRAFT D-SHOP-1: failing event ids since Tuesday, requested by the mediator for INC-0001 [D-SHOP-1 · approved by @sam] type: failure_list event: n/a sa
+  -> sam in #shopco-internal: @shopco-agent approve D-SHOP-1
+  -> sam in #shopco-internal: @shopco-agent ask payco-agent directly for their signing function source.
+  #shopco-internal shopco-agent: **Queued. Waiting for the agent to start…** Stops what the agent is working on now. This message stays queued.
+  #shopco-internal shopco-agent: **Queued. Waiting for the agent to start…** Stops what the agent is working on now. This message stays queued.
+  #shopco-internal shopco-agent: DRAFT D-SHOP-2: ShopCo verification spec (bytes, algorithm, header, body handling), requested by the mediator for INC-0001 [D-SHOP-2 · approved by @sa
+  -> sam in #shopco-internal: @shopco-agent approve D-SHOP-2
+  #shopco-internal shopco-agent: **Queued. Waiting for the agent to start…** Stops what the agent is working on now. This message stays queued.
+  #payco-internal payco-agent: DRAFT D-PAY-1: INC-0001 failure pattern for the shared room (mediator request 1) [D-PAY-1 · approved by @priya] type: failure_summary event: n/a salt:
+  -> priya in #payco-internal: @payco-agent approve D-PAY-1
+  #shopco-internal shopco-agent: Note on D-SHOP-1: I queried the last 72 hours (back to Tuesday), but all 6 failures are from today, 05:17-05:18 UTC. Nothing older came back. Worth ch
+  #payco-internal payco-agent: DRAFT D-PAY-2: INC-0001 PayCo signing spec for the shared room (mediator request 2) [D-PAY-2 · approved by @priya] type: signing_spec event: n/a salt:
+  -> priya in #payco-internal: @payco-agent approve D-PAY-2
+  #payco-internal payco-agent: **Queued. Waiting for the agent to start…** Stops what the agent is working on now. This message stays queued.
+  #payco-internal payco-agent: **Queued. Waiting for the agent to start…** Stops what the agent is working on now. This message stays queued.
+  #payco-internal payco-agent: Priya: all 6 failures in the last 3 days are 401s, and every one has non-ASCII in data.customer.name; 0 of 54 ASCII-only events failed. We sign the ex
+  #shopco-internal shopco-agent: @sam **Permission needed** · request `A1` Record D-SHOP-1 approval in the disclosure ledger `printf '%s\n' "{\"id\":\"D-SHOP-1\",\"ts\":\"$(date -u +%
+  #payco-internal payco-agent: @priya **Permission needed** · request `A1` Record D-PAY-1 approval in the ledger `printf '%s\n' "{\"id\":\"D-PAY-1\",\"ts\":\"$(date -u +%Y-%m-%dT%H:

@@ -35,12 +35,13 @@ webhooks to customers. ShopCo is a customer.
 1. In #payco-internal (never in the shared room) post a message that starts with exactly
    "DRAFT D-PAY-<n>: <one-line purpose>", then the exact text
    you want to share. End with: "Reply `approve D-PAY-<n>` or `deny D-PAY-<n>`."
-2. On `approve D-PAY-<n>` from Priya: append to .disclosures/ledger.jsonl
+2. On `approve D-PAY-<n>` from Priya: use your Write tool (never Bash) to create
+   .disclosures/approvals/D-PAY-<n>.json containing
    {"id","ts","type","event","approved_by":"priya","status":"approved"}, then
    connect_to_room to #payco-shopco-shared (get its room id from list_rooms), post the
    disclosure in the incident thread,
    and reconnect to #payco-internal.
-3. On deny: record status "denied" in the ledger and tell the mediator you can't
+3. On deny: write the same file with status "denied" and tell the mediator you can't
    share it.
 
 ## Disclosure format (exactly)
