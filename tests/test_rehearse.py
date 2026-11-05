@@ -112,3 +112,16 @@ def test_repo_lines_shared_is_measured(tmp_path):
     post = lambda m: rehearse.mmlib.Post("p", "c", "u", "payco-agent", "", m, "", 0, False, False)  # noqa: E731
     assert rehearse.repo_lines_shared([post("PayCo signs the exact body bytes it sends.\nx = 1")], code) == 0
     assert rehearse.repo_lines_shared([post("> `const signed = JSON.stringify(job.payload);`")], code) == 1
+
+
+def test_backfill_refusals_adds_only_missing_ones(tmp_path):
+    import json
+    import rehearse
+    rec = tmp_path / "run-9.events.jsonl"
+    rec.write_text(json.dumps({"id": "a", "t": 1_000, "kind": "message", "who": "mediator", "lane": "shared"}) + "\n")
+    body = "@shopco-agent You're not permitted to direct messages to me in this room — my operator has restricted who can address me here."
+    post = rehearse.mmlib.Post("p1", "c", "u", "payco-agent", "", body, "", 50_000, False, False, True)
+    assert rehearse.backfill_refusals(rec, [("payco-shopco-shared", post)]) == 1
+    assert rehearse.backfill_refusals(rec, [("payco-shopco-shared", post)]) == 0   # already there
+    ev = json.loads(rec.read_text().splitlines()[-1])
+    assert ev["kind"] == "refusal" and ev["by"] == "payco-agent" and ev["to"] == "shopco-agent" and ev["backfilled"] == "mattermost"

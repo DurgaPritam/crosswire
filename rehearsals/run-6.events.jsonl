@@ -143,3 +143,4 @@
 {"id": "sw_a663e11999d54194bb1b9e2568267904", "t": 1793865059037, "lane": "shared", "who": "mediator", "kind": "status_change", "status": "resolved", "seq": 142}
 {"id": "sw_2876499fa9394037861fab61b721dc94", "t": 1793865059434, "lane": "shopco", "who": "shopco-agent", "kind": "message", "text": "D-SHOP-4 is posted in the shared INC-0001 thread and the mediator was notified. Nothing from ShopCo is waiting on you now; the mediator can close once PayCo's guard stats are in.", "thread": true, "seq": 143}
 {"id": "guard-shopco-29", "t": 1793865059000, "lane": "shopco", "who": "guard", "kind": "guard_check", "company": "shopco", "rules": [], "note": null, "seq": 144}
+{"id": "mm-anb81sjwmbbytyw8sf5harsmph", "t": 1793864540602, "lane": "shared", "who": "payco-agent", "kind": "refusal", "by": "payco-agent", "to": "shopco-agent", "code": "not_permitted", "text": "Switch refused a message that this agent's addressing policy does not admit.", "backfilled": "mattermost"}

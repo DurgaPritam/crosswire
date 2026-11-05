@@ -121,6 +121,30 @@ class Grade:
     warnings: list[str]
 
 
+def backfill_refusals(rec: Path, posts: list[tuple[str, mmlib.Post]]) -> int:
+    """Append refusals that are visible in Mattermost but never reached the Console's observer (run 6: Switch's
+    refusal reply was posted to the chat but not delivered on the observer's stream). Built by the Console's own
+    normalizer from the real post, with its real timestamp; marked `"backfilled": "mattermost"`."""
+    sys.path.insert(0, str(ROOT / "console/server"))
+    from crosswire_console.normalize import from_message  # noqa: PLC0415
+    if not rec.exists():
+        return 0
+    have = [json.loads(l) for l in rec.read_text(encoding="utf-8").splitlines() if l.strip()]
+    seen_t = [e["t"] for e in have if e["kind"] == "refusal"]
+    added = []
+    for channel, p in posts:
+        if not mmlib.real([p]):
+            continue
+        for ev in from_message({"id": f"mm-{p.id}", "t": p.create_at, "room": channel, "sender": p.label, "body": p.message}, None):
+            if ev["kind"] == "refusal" and not any(abs(ev["t"] - t) < 10_000 for t in seen_t):
+                added.append({**ev, "backfilled": "mattermost"})
+                seen_t.append(ev["t"])
+    if added:
+        with rec.open("a", encoding="utf-8") as fh:
+            fh.writelines(json.dumps(e) + "\n" for e in added)
+    return len(added)
+
+
 CODE_DIRS = {"payco": "api", "shopco": "app"}        # each company's source tree in its workspace (not docs, not hooks)
 CODE_EXT = (".py", ".js", ".ts", ".sh")
 
@@ -336,6 +360,8 @@ def one_run(n: int, reset: bool) -> Grade:
     guard_stats = {c: sh("scripts/guard-stats.sh", c).strip() for c in ("payco", "shopco")}
     g = grade(posts, driver, guard_stats)
     rec = REHEARSALS / f"run-{n}.events.jsonl"
+    if (added := backfill_refusals(rec, posts)):
+        g.warnings.append(f"{added} refusal(s) missing from the observer's stream, backfilled from Mattermost")
     if rec.exists():  # the recorder has stopped: append the measured scorecard for the Console's finale
         shared_lines = repo_lines_shared([p for c, p in posts if c == SHARED], company_code_lines())
         with rec.open("a", encoding="utf-8") as fh:
