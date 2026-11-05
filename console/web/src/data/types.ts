@@ -38,6 +38,7 @@ export interface Marker { t: number; role: Role; label?: string; short?: string;
 export interface StoryData {
   mode: 'live' | 'replay';
   run: string | null;
+  runNo: number | null;          // the rehearsal number, from the grader's scorecard (fixtures are renamed copies)
   nowMs: number;
   openedAt: number | null;
   elapsed: number;              // seconds since the incident opened

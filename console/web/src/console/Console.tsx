@@ -105,7 +105,7 @@ function TopBar({ L, S, theme, D, controls, onViewAs, onRun }: { L: Layout; S: S
       {S.incident === 'resolved' && <Pill role="approved"><span className="font-mono text-[11.5px]">{inc}</span>· resolved</Pill>}
       {S.incident === 'connecting' && <Pill role="neutral">Connecting to room <Typing /></Pill>}
       {S.incident === 'none' && <Pill role="neutral">No active incident</Pill>}
-      {S.isReplay && <Chip icon="replay">{D ? `Replay of ${(D.run ?? 'a recorded run').replace(/\.events\.jsonl$/, '').replace(/^run-/, 'run #')} · real transcript` : 'Replay of run #7 · real transcript'}</Chip>}
+      {S.isReplay && <Chip icon="replay">{D ? `Replay of ${D.runNo ? `run #${D.runNo}` : (D.run ?? 'a recorded run').replace(/\.events\.jsonl$/, '').replace(/^run-/, 'run #')} · real transcript` : 'Replay of run #7 · real transcript'}</Chip>}
       <div className="flex flex-none items-center gap-2 text-fg2">
         <Icon name="clock" />
         <span className="font-mono text-[15px] font-medium tabular-nums text-fg">{S.isLoading ? '--:--' : fmt(S.now)}</span>

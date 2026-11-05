@@ -75,7 +75,7 @@ export default function App() {
 }
 
 const EMPTY = {
-  mode: 'live' as const, run: null, nowMs: Date.now(), openedAt: null, elapsed: 0, span: 480,
+  mode: 'live' as const, run: null, runNo: null, nowMs: Date.now(), openedAt: null, elapsed: 0, span: 480,
   incident: { id: null, status: 'none' as const, title: '' }, lanes: { payco: [], shared: [], shopco: [] }, hypotheses: [], symptoms: [],
   ledger: [], guard: { checked: 0, blocked: 0, repoLines: 0 }, compare: null, salt: null, markers: [], refusal: null, crossing: null,
   finale: null, counts: { events: 0 },

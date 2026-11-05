@@ -29,6 +29,9 @@ export function reduce(all: CwEvent[], nowMs: number, mode: 'live' | 'replay', r
   let resolvedAt: number | null = null;
   const fixes = { payco: false, shopco: false };
   let linesShared: number | null = null;
+  // the run number is known from the whole recording (its scorecard comes last), not just the events played so far
+  const card = all.find((e) => e.kind === 'scorecard');
+  const runNo = card ? Number(/^scorecard-run-(\d+)$/.exec(card.id)?.[1]) || null : null;
   const firstT = events[0]?.t ?? nowMs;
   const rel = (t: number) => Math.max(0, Math.round((t - (openedAt ?? firstT)) / 1000));
 
@@ -129,7 +132,7 @@ export function reduce(all: CwEvent[], nowMs: number, mode: 'live' | 'replay', r
   const pay = crossed.filter((c) => c.company === 'payco').length;
   const shop = crossed.filter((c) => c.company === 'shopco').length;
   return {
-    mode, run, nowMs, openedAt, elapsed,
+    mode, run, runNo, nowMs, openedAt, elapsed,
     span: Math.max(480, Math.ceil((elapsed + 30) / 60) * 60),
     incident: { id: incidentId, status: events.length ? status : 'none', title: 'Webhook signature mismatch' },
     lanes, hypotheses,
