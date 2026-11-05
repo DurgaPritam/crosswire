@@ -101,6 +101,7 @@ def apply(name: str) -> None:
 
 def restore(name: str) -> None:
     manifest = json.loads((SNAPS / f"{name}.json").read_text())
+    subprocess.run(["chflags", "-R", "nouchg", str(RUNTIME / "workspace")], capture_output=True)  # setup locks the controls
     with tarfile.open(SNAPS / f"{name}.tar.gz", "r:gz") as tar:
         tar.extractall(RUNTIME, filter="data")
     for rel in manifest.get("added_by_apply", []):

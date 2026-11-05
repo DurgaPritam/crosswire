@@ -202,7 +202,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR/hooks/path_guard.py\" --mediator",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/hooks/path_guard.py\" --mediator --pins \"{{REPO_DIR}}/switch/state/pins.json\"",
             "timeout": 10
           }
         ]

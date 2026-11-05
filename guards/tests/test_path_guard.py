@@ -130,7 +130,7 @@ class PathGuardTests(unittest.TestCase):
         self.bash_allowed("ls -la")
         self.bash_allowed("cat secret-a.txt notes.txt")
         self.bash_allowed("mkdir -p .tmp && cp notes.txt .tmp/")
-        self.bash_allowed("python3 hooks/block.py < notes.txt 2>/dev/null")
+        self.bash_allowed("python3 -c 'print(1)' < notes.txt 2>/dev/null")
         self.bash_allowed("/usr/bin/env python3 --version")
         self.bash_allowed("git log --oneline HEAD~1..HEAD")
         self.bash_allowed("echo see https://example.com/health")  # a URL is not a path
@@ -241,3 +241,40 @@ class ProcessNetworkAndMediator(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=1)
+
+
+class ProtectedControlsTests(PathGuardTests):
+    """An agent can read its own guards, settings, MCP config, playbook and disclosure records, never change them."""
+
+    def test_bash_cannot_touch_protected_paths(self) -> None:
+        for cmd in ("printf x > hooks/disclosure_guard.py", "echo '{}' > .claude/settings.json", "cat .disclosures/guard.log.jsonl",
+                    "rm -rf .switch", "sed -i '' s/a/b/ CLAUDE.md", "python3 hooks/block.py", "cp notes.txt ./AGENTS.md",
+                    "cd .claude && ls"):
+            self.bash_blocked(cmd)
+
+    def test_bash_cannot_change_permissions_or_link(self) -> None:
+        for cmd in ("chmod +w notes.txt", "chflags nouchg notes.txt", "ln -s notes.txt x", "xattr -c notes.txt", "chown me notes.txt"):
+            self.bash_blocked(cmd)
+
+    def test_file_tools_read_but_never_write_controls(self) -> None:
+        self.allowed("Read", {"file_path": str(self.l.a / "hooks" / "path_guard.py")})
+        self.blocked("Write", {"file_path": str(self.l.a / ".claude" / "settings.json"), "content": "{}"})
+        self.blocked("Edit", {"file_path": str(self.l.a / "hooks" / "path_guard.py"), "old_string": "a", "new_string": "b"})
+        self.blocked("Write", {"file_path": str(self.l.a / ".disclosures" / "guard.log.jsonl"), "content": ""})
+        self.allowed("Write", {"file_path": str(self.l.a / ".disclosures" / "approvals" / "D-PAY-1.json"), "content": "{}"})
+
+    def test_integrity_pins_fail_closed(self) -> None:
+        import hashlib, json, os
+        pins = self.l.a / ".tmp" / "pins.json"
+        pins.parent.mkdir(exist_ok=True)
+        guard = self.l.a / "hooks" / "path_guard.py"
+        root = os.path.realpath(self.l.a)
+        pins.write_text(json.dumps({root: {"files": {"hooks/path_guard.py": hashlib.sha256(guard.read_bytes()).hexdigest()}}}))
+        ok = self.l.run({"tool_name": "Read", "tool_input": {"file_path": str(self.l.a / "notes.txt")}}, args=("--pins", str(pins)))
+        self.assertEqual(ok.returncode, 0, ok.stderr)
+        pins.write_text(json.dumps({root: {"files": {"hooks/path_guard.py": "0" * 64}}}))
+        bad = self.l.run({"tool_name": "Read", "tool_input": {"file_path": str(self.l.a / "notes.txt")}}, args=("--pins", str(pins)))
+        self.assertEqual(bad.returncode, 2)
+        self.assertIn("integrity check failed", bad.stderr)
+        missing = self.l.run({"tool_name": "Read", "tool_input": {"file_path": str(self.l.a / "notes.txt")}}, args=("--pins", str(pins) + ".gone"))
+        self.assertEqual(missing.returncode, 2)

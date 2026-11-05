@@ -92,6 +92,10 @@ else
   echo "workspace/mediator exists, skipping"
 fi
 
+# Each agent's controls are made immutable (macOS user-immutable flag) after rendering; lift it to re-render.
+unlock_controls() { [ -d "$WS" ] && command -v chflags >/dev/null && chflags -R nouchg "$WS" 2>/dev/null; return 0; }
+unlock_controls
+
 # Guards: one canonical copy in guards/, copied into every agent workspace on every run.
 install_guards() { # name, guards...
   local name="$1"; shift
@@ -128,6 +132,33 @@ fi
 render_settings payco shopco
 render_settings shopco payco
 render_settings mediator ""
+
+# Pin every agent's controls (guards, settings, MCP config, playbook, room ids) and make them immutable. The guards
+# check these pins on every call and fail closed on a mismatch; preflight checks them between runs.
+python3 - "$ROOT" "$WS" <<'PY'
+import hashlib, json, sys
+from pathlib import Path
+root, ws = Path(sys.argv[1]), Path(sys.argv[2])
+CONTROLS = ("hooks/path_guard.py", "hooks/disclosure_guard.py", ".claude/settings.json", ".mcp.json", "CLAUDE.md", "AGENTS.md",
+            ".disclosures/rooms.json")
+pins = {}
+for agent in ("payco", "shopco", "mediator"):
+    d = (ws / agent).resolve()
+    files = {rel: hashlib.sha256((d / rel).read_bytes()).hexdigest() for rel in CONTROLS if (d / rel).is_file()}
+    pins[str(d)] = {"files": files}
+out = root / "switch" / "state" / "pins.json"
+out.parent.mkdir(parents=True, exist_ok=True)
+out.write_text(json.dumps(pins, indent=1))
+print(f"  pinned {sum(len(v['files']) for v in pins.values())} control files -> switch/state/pins.json")
+PY
+if command -v chflags >/dev/null; then
+  for agent in payco shopco mediator; do
+    for rel in hooks/path_guard.py hooks/disclosure_guard.py .claude/settings.json .mcp.json CLAUDE.md AGENTS.md .disclosures/rooms.json; do
+      [ -f "$WS/$agent/$rel" ] && chflags uchg "$WS/$agent/$rel"
+    done
+  done
+  echo "  made the control files immutable (chflags uchg)"
+fi
 
 echo "setup done. Agent working dirs:"
 echo "  payco-agent  -> $WS/payco"

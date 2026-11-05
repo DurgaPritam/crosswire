@@ -42,7 +42,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 HOOKS_DIR = Path(__file__).resolve().parent
-LOG_PATH = HOOKS_DIR / "path.log"
+LOG_PATH = HOOKS_DIR / "path.log"  # the project's hooks/ (the guard is installed there)
 
 ALLOWED_OUTSIDE_PREFIXES = ("/usr", "/bin", "/sbin", "/opt/homebrew")
 ALLOWED_OUTSIDE_EXACT = ("/dev/null", "/dev/stdin", "/dev/stdout", "/dev/stderr")
@@ -80,6 +80,23 @@ NETWORK_RE = re.compile(_CMD_POS + r"(" + "|".join(NETWORK_TOOLS) + r")(?=$|[\s;
 MEDIATOR_SALT_RE = re.compile(
     r"""python3 -c (['\"])import secrets; ?print\(('|\")inc-[0-9]{4}-\2 ?\+ ?secrets\.token_hex\([1-9][0-9]?\)\)\1""")
 MEDIATOR = "--mediator" in sys.argv[1:]
+
+# An agent's own controls live in its project directory: they may be READ, never changed by the agent.
+# (.disclosures/approvals/ stays writable with the Write tool until approvals come from the approver service.)
+PROTECTED = ("hooks", ".claude", ".mcp.json", ".disclosures", ".switch", "CLAUDE.md", "AGENTS.md")
+WRITABLE_EXCEPTIONS = (".disclosures/approvals/", ".disclosures/ledger.jsonl")
+WRITE_TOOLS = {"Write", "Edit", "MultiEdit", "NotebookEdit"}
+PROTECTED_RE = re.compile(r"(?:^|[\s'\"`=(<>|;&:])(?:\./)?(" + "|".join(re.escape(x) for x in PROTECTED) + r")(?=$|/|[\s'\"`;|&<>()])")
+ATTR_TOOLS = ("chmod", "chown", "chgrp", "chflags", "chattr", "xattr", "setfacl", "ln")
+ATTR_RE = re.compile(_CMD_POS + r"(" + "|".join(ATTR_TOOLS) + r")(?=$|[\s;&|)'\"`])")
+
+
+def _arg(flag: str) -> str | None:
+    args = sys.argv[1:]
+    return args[args.index(flag) + 1] if flag in args and args.index(flag) + 1 < len(args) else None
+
+
+PINS = _arg("--pins")   # switch/state/pins.json (outside every workspace), written by `just setup`
 
 
 class Blocked(Exception):
@@ -153,6 +170,12 @@ def check_bash(command: str, cwd: str, root: str) -> None:
         if not MEDIATOR_SALT_RE.fullmatch(command.strip()):
             raise Blocked("the mediator may only run the incident-salt command from its playbook")
         return
+    attr = ATTR_RE.search(command)
+    if attr:
+        raise Blocked(f"{attr.group(1)} is not allowed: file permissions and links are not the agent's to change")
+    prot = PROTECTED_RE.search(command)
+    if prot:
+        raise Blocked(f"{prot.group(1)} is protected: read it with the Read tool; it can't be used in Bash")
     proc = PROCESS_RE.search(command)
     if proc:
         raise Blocked(f"process inspection ({proc.group(1)}) is not allowed: agents must not inspect each other's processes")
@@ -197,6 +220,33 @@ def check_bash(command: str, cwd: str, root: str) -> None:
                     raise Blocked(f"path {candidate!r} resolves to {resolved}, outside the project")
 
 
+def check_protected_write(tool_input: dict, cwd: str, root: str) -> None:
+    raw = tool_input.get("file_path") or tool_input.get("notebook_path") or ""
+    rel = os.path.relpath(resolve(raw, cwd), root)
+    if rel.startswith(WRITABLE_EXCEPTIONS) and not os.path.islink(resolve(raw, cwd)):
+        return
+    if any(rel == p or rel.startswith(p + "/") for p in PROTECTED):
+        raise Blocked(f"{rel} is one of this agent's own controls: it can be read, not changed")
+
+
+def check_integrity(root: str) -> None:
+    """Fail closed if a pinned control file (guards, settings, MCP config, playbook) differs from `just setup`'s."""
+    if not PINS:
+        return
+    try:
+        pins = json.loads(Path(PINS).read_text(encoding="utf-8")).get(root)
+    except (OSError, ValueError) as exc:
+        raise Blocked(f"integrity pins unreadable ({exc.__class__.__name__}): run `just setup`") from exc
+    if not pins:
+        raise Blocked("no integrity pins for this project: run `just setup`")
+    import hashlib
+    for rel, digest in pins["files"].items():
+        f = Path(root) / rel
+        actual = hashlib.sha256(f.read_bytes()).hexdigest() if f.is_file() else "missing"
+        if actual != digest:
+            raise Blocked(f"integrity check failed: {rel} differs from the pinned copy; run `just setup`")
+
+
 def decide(event: dict) -> tuple[str, str]:
     tool = event.get("tool_name")
     tool_input = event.get("tool_input")
@@ -207,9 +257,12 @@ def decide(event: dict) -> tuple[str, str]:
     cwd_real = os.path.realpath(cwd)
     if not inside(cwd_real, root):
         raise Blocked(f"session cwd {cwd_real} is outside the project {root}")
+    check_integrity(root)
 
     if tool in FILE_TOOL_PATH_KEYS:
         check_file_tool(tool, tool_input, cwd_real, root)
+        if tool in WRITE_TOOLS:
+            check_protected_write(tool_input, cwd_real, root)
     elif tool == "Bash":
         command = tool_input.get("command")
         if not isinstance(command, str):

@@ -221,7 +221,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR/hooks/disclosure_guard.py\" --track-room",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/hooks/disclosure_guard.py\" --track-room --pins \"{{REPO_DIR}}/switch/state/pins.json\"",
             "timeout": 10
           }
         ]
@@ -231,7 +231,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR/hooks/disclosure_guard.py\"",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/hooks/disclosure_guard.py\" --pins \"{{REPO_DIR}}/switch/state/pins.json\"",
             "timeout": 20
           }
         ]
@@ -241,7 +241,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR/hooks/path_guard.py\"",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/hooks/path_guard.py\" --pins \"{{REPO_DIR}}/switch/state/pins.json\"",
             "timeout": 10
           }
         ]
@@ -252,7 +252,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR/hooks/disclosure_guard.py\" --session-start",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/hooks/disclosure_guard.py\" --session-start --pins \"{{REPO_DIR}}/switch/state/pins.json\"",
             "timeout": 10
           }
         ]

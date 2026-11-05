@@ -124,6 +124,25 @@ def main() -> int:
         print("preflight FAILED early: start the services (just up)", flush=True)
         return 1
 
+    pins_file = ROOT / "switch" / "state" / "pins.json"
+    pins = json.loads(pins_file.read_text()) if pins_file.exists() else {}
+    import hashlib, stat
+    bad, unlocked = [], []
+    for agent in ("payco", "shopco", "mediator"):
+        d = str((ROOT / "workspace" / agent).resolve())
+        files = (pins.get(d) or {}).get("files") or {}
+        if not files:
+            bad.append(f"{agent}: no pins")
+        for rel, digest in files.items():
+            f = Path(d) / rel
+            if (hashlib.sha256(f.read_bytes()).hexdigest() if f.is_file() else "missing") != digest:
+                bad.append(f"{agent}/{rel}")
+            elif hasattr(stat, "UF_IMMUTABLE") and not (f.stat().st_flags & stat.UF_IMMUTABLE):
+                unlocked.append(f"{agent}/{rel}")
+    check("every agent's controls match their pins and are immutable", not bad and not unlocked,
+          ("changed: " + ", ".join(bad[:4]) if bad else "") + (" not immutable: " + ", ".join(unlocked[:4]) if unlocked else "")
+          + (": run `just setup` between runs" if bad or unlocked else ""))
+
     drift = phase7.instructions_drift(gw)
     check("agents' Switch instructions match their AGENT.md", not drift,
           (", ".join(drift) + ": sync BETWEEN runs with `.venv/bin/python scripts/phase7.py instructions`, then restart "

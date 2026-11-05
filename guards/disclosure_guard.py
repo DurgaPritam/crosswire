@@ -225,6 +225,24 @@ def log(root: Path, tool: str, decision: str, rules: list[str], length: int, not
         fh.write(json.dumps(entry) + "\n")
 
 
+def integrity_problem(root: Path) -> str | None:
+    """Compare the project's pinned control files (switch/state/pins.json, written by `just setup`) with what's there."""
+    args = sys.argv[1:]
+    if "--pins" not in args or args.index("--pins") + 1 >= len(args):
+        return None
+    try:
+        pins = json.loads(Path(args[args.index("--pins") + 1]).read_text(encoding="utf-8")).get(str(root))
+    except (OSError, ValueError):
+        return "integrity pins are unreadable"
+    if not pins:
+        return "no integrity pins for this project"
+    for rel, digest in pins.get("files", {}).items():
+        f = root / rel
+        if (hashlib.sha256(f.read_bytes()).hexdigest() if f.is_file() else "missing") != digest:
+            return f"integrity check failed: {rel} differs from the pinned copy"
+    return None
+
+
 def main() -> int:
     root = project_dir()
     tool = "?"
@@ -254,6 +272,11 @@ def main() -> int:
         return 2
     if tool not in POST_TOOLS | DOC_TOOLS:
         return 0
+    bad = integrity_problem(root)
+    if bad:  # fail closed: a changed guard, settings file or playbook means nothing is posted until `just setup`
+        log(root, tool, "block", ["integrity"], 0)
+        print(f"disclosure_guard: {bad}; nothing can be posted until `just setup` re-installs the controls", file=sys.stderr)
+        return 2
     text = outgoing_text(tool_input)
     rules = check(tool, text, root)
     if rules:

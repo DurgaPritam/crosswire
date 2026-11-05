@@ -18,6 +18,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
 import shutil
 import sys
@@ -129,6 +130,8 @@ def restore_changed(src: Path, before: dict[str, str], after: dict[str, str]) ->
         live = ROOT / rel
         name = rel.split("/")[1]
         saved = src / name / Path(rel).relative_to(f"workspace/{name}")
+        if live.exists() and hasattr(os, "chflags"):
+            os.chflags(live, 0)              # setup makes controls immutable; restore must lift that first
         if saved.exists():
             live.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(saved, live)
