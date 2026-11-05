@@ -1,0 +1,4 @@
+# fake secrets in guards/tests/test_outbound_fix5.py (fix 5 tests), before they carried gitleaks:allow
+822288085c0ca1d5332967671e69b60a5d5208c0:guards/tests/test_outbound_fix5.py:stripe-access-token:69
+822288085c0ca1d5332967671e69b60a5d5208c0:guards/tests/test_outbound_fix5.py:jwt:70
+822288085c0ca1d5332967671e69b60a5d5208c0:guards/tests/test_outbound_fix5.py:generic-api-key:72
