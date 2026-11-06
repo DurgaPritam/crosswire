@@ -118,10 +118,10 @@ class Watcher:
         rows = listed.get("rooms", listed) if isinstance(listed, dict) else listed
         self.rooms.ids = {r["name"]: (r.get("room_id") or r.get("id")) for r in rows if r.get("name") in ROOMS}
         self.rooms.names = {v: k for k, v in self.rooms.ids.items()}
-        for name, rid in self.rooms.ids.items():   # members and history, one room at a time (each read is per room)
-            ctx = await self.client.op("connect_to_room", room_id=rid, include_general_instructions=False) or {}
-            self.rooms.agents[name] = {m.get("name") for m in ctx.get("participants") or [] if m.get("type") == "agent"}
-            hist = await self.client.op("read_context", limit=200) or {}
+        for name, rid in self.rooms.ids.items():   # members and history, read by room id: nothing is claimed
+            det = await self.client.op("get_room_detail", room_id=rid) or {}
+            self.rooms.agents[name] = set(det.get("agent_names") or [])
+            hist = await self.client.op("read_context", room_id=rid, limit=200) or {}
             msgs = []
             for th in hist.get("threads") or []:
                 msgs += [th.get("root") or {}] + list(th.get("replies") or [])
@@ -148,8 +148,8 @@ class Watcher:
                 got = note_message(self.ap, self.rooms, room, data.get("payload") or {}, live=True)
                 if got:
                     await self.receipt(room, *got)
-        elif kind == "subscription_changed":
-            await self.learn_rooms()
+        elif kind == "subscription_changed":   # our own receipts claim a room for a moment; nothing to re-read
+            pass
         if data.get("sequence") is not None:
             self.cursor = max(int(data["sequence"]), self.cursor or 0)
 
