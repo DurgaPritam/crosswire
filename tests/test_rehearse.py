@@ -46,8 +46,8 @@ def test_driver_plays_the_demo_script() -> None:
     d = rh.Driver()
     actions = feed(d, CLEAN_RUN)
     texts = [(a.actor, a.channel, a.text) for a in actions]
-    assert ("priya", rh.PAY_IN, "@payco-agent approve D-PAY-1") in texts
-    assert ("sam", rh.SHOP_IN, "@shopco-agent approve D-SHOP-1") in texts
+    assert ("priya", rh.PAY_IN, "@payco-agent @approver approve D-PAY-1") in texts
+    assert ("sam", rh.SHOP_IN, "@shopco-agent @approver approve D-SHOP-1") in texts
     assert ("sam", rh.SHOP_IN, rh.DIRECT_ASK) in texts                      # step 4, once, after the first ShopCo approval
     assert [t for t in texts if t[2] == "@mediator confirm root cause"] == [("priya", rh.SHARED, "@mediator confirm root cause"),
                                                                              ("sam", rh.SHARED, "@mediator confirm root cause")]
