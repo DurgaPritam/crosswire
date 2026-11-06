@@ -37,7 +37,7 @@ webhooks to customers. ShopCo is a customer.
 <!-- Plan A (room hop via connect_to_room), chosen by Phase 0 spike S4 on 2026-11-04. -->
 1. In #payco-internal (never in the shared room) post a message that starts with exactly
    "DRAFT D-PAY-<n>: <one-line purpose>", then the exact text
-   you want to share. End with: "Reply `approve D-PAY-<n>` or `deny D-PAY-<n>`."
+   you want to share. End with this exact last line: "Approve with: @payco-agent @approver approve D-PAY-<n>" (to refuse: deny in place of approve).
 2. On `approve D-PAY-<n>` from Priya: use your Write tool (never Bash) to create
    .disclosures/approvals/D-PAY-<n>.json containing
    {"id","ts","type","event","approved_by":"priya","status":"approved"}, then

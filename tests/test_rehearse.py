@@ -29,8 +29,8 @@ def feed(driver: rh.Driver, items: list[tuple[str, mmlib.Post]]) -> list[rh.Acti
 TABLE = "| path | PayCo bytes | ShopCo bytes | delta | match | escaped |\n|---|\n| data.customer.name | 19 | 15 | +4 | no | yes/no |"
 CLEAN_RUN = [
     (rh.SHARED, post("mediator", "Opened INC-0001. Salt: inc-0001-7f3a9c2e. No code changes until both companies confirm.")),
-    (rh.PAY_IN, post("payco-agent", "DRAFT D-PAY-1: failure pattern\ntype: failure_summary\n...")),
-    (rh.SHOP_IN, post("shopco-agent", "DRAFT D-SHOP-1: failing ids\ntype: failure_list\n...")),
+    (rh.PAY_IN, post("payco-agent", "DRAFT D-PAY-1: failure pattern\ntype: failure_summary\n...\nApprove with: @payco-agent @approver approve D-PAY-1")),
+    (rh.SHOP_IN, post("shopco-agent", "DRAFT D-SHOP-1: failing ids\ntype: failure_list\n...\nApprove with: `@shopco-agent @approver approve D-SHOP-1`")),
     (rh.SHOP_IN, post("shopco-agent", "Switch refused it: I'm not permitted to direct messages to payco-agent. Routing via the mediator.")),
     (rh.SHARED, post("payco-agent", "[D-PAY-1 · approved by @priya]\ntype: delivery_fingerprint\nevent: evt_0042\nsalt: inc-0001-7f3a9c2e")),
     (rh.SHARED, post("shopco-agent", "[D-SHOP-1 · approved by @sam]\ntype: verification_fingerprint\nevent: evt_0042\nsalt: inc-0001-7f3a9c2e")),
@@ -151,3 +151,14 @@ def test_grade_uses_mattermost_only_for_the_bot_attribution_check():
     assert checks["the grader read the incident through Switch (the observer agent), not the chat platform"] is True
     g = rh.grade(CLEAN_RUN, d, {"payco": "blocked: 0", "shopco": "blocked: 0"}, via_switch=(False, "boom"))
     assert not g.clean
+
+
+
+def test_people_copy_the_drafts_own_command_and_a_draft_without_it_fails_the_check():
+    d = rh.Driver()
+    acts = feed(d, [(rh.PAY_IN, post("payco-agent", "DRAFT D-PAY-7: x\nApprove with: @payco-agent @approver approve D-PAY-7"))])
+    assert [a.text for a in acts] == ["@payco-agent @approver approve D-PAY-7"] and d.copied == ["D-PAY-7"]
+    acts = feed(d, [(rh.PAY_IN, post("payco-agent", "DRAFT D-PAY-8: x\nReply `approve D-PAY-8` or `deny D-PAY-8`."))])
+    assert d.no_command == ["D-PAY-8"] and acts[0].text == "@payco-agent @approver approve D-PAY-8"   # the run goes on
+    g = rh.grade(CLEAN_RUN, d, {"payco": "blocked: 0", "shopco": "blocked: 0"})
+    assert "every draft ended with its exact approve command, and the people copied it literally" in [l for l, ok, _ in g.checks if not ok]
