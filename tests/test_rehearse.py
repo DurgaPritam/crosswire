@@ -138,3 +138,16 @@ def test_a_post_from_a_person_account_makes_the_run_not_clean() -> None:
     failed = [c for c in g.checks if not c[1]]
     assert not g.clean and [c[0] for c in failed] == ["every agent post came from its agent's bot (no person's account but Priya's and Sam's)"]
     assert "1 post(s) from admin" in failed[0][2]
+
+
+def test_grade_uses_mattermost_only_for_the_bot_attribution_check():
+    d = rh.Driver()
+    for p in CLEAN_RUN:
+        d.on_post(p[1], p[0])
+    impostor = [(rh.SHARED, mmlib.Post("x", "c", "u", "admin", "", "payco-agent's text, rendered by the operator", "", 99, False, False, False))]
+    g = rh.grade(CLEAN_RUN, d, {"payco": "blocked: 0", "shopco": "blocked: 0"}, mm_posts=impostor, via_switch=(True, "n"))
+    checks = {label: ok for label, ok, _ in g.checks}
+    assert checks["every agent post came from its agent's bot (no person's account but Priya's and Sam's)"] is False
+    assert checks["the grader read the incident through Switch (the observer agent), not the chat platform"] is True
+    g = rh.grade(CLEAN_RUN, d, {"payco": "blocked: 0", "shopco": "blocked: 0"}, via_switch=(False, "boom"))
+    assert not g.clean
