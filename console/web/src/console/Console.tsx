@@ -474,7 +474,20 @@ function LiveItem({ m }: { m: Msg }) {
       </Message>
     );
   }
-  if (m.who === 'approver') return <SysRow><Icon name="check" className="text-approved-ink" /><span className="truncate">{m.text}</span><span className="shrink-0 text-fg3">· Switch protocol agent (approver)</span></SysRow>;
+  if (m.who === 'approver') {   // its receipt, e.g. "Approver: signed: D-PAY-3 approved by priya for INC-0001 (evidence …)"
+    const r = m.text.match(/signed: (D-[A-Z]+-\d+) (approved|denied) by (\w+)/i);
+    const not = /not signed: (.*)/i.exec(m.text);
+    return (
+      <div className="cw-receipt px-3.5 py-2">
+        <div className="flex min-w-0 items-center gap-2 text-small">
+          <Icon name={r ? 'check' : 'blocked'} className={r ? 'text-approved-ink' : 'text-blocked-ink'} />
+          <span className="truncate text-fg">{r ? `${r[1]} signed · ${r[2]} by ${r[3]}` : not ? `Not signed: ${not[1]}` : m.text}</span>
+          <Meta className="ml-auto shrink-0">{m.time}</Meta>
+        </div>
+        <SwitchTag>protocol agent (no AI) · approver · signs only what the owner addresses to it</SwitchTag>
+      </div>
+    );
+  }
   if (!who) return <SysRow><Icon name="shield" className="text-fg3" /><span className="truncate">{m.text}</span></SysRow>;
   return <Message who={who} time={m.time} state={m.fresh ? 'fresh' : undefined} tag={SWITCH_BY_WHO[m.who]}>{m.text}</Message>;
 }
