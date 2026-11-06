@@ -2,7 +2,7 @@
 """`just doctor [0|1|2]`: are this machine's prerequisites in place for each way of trying Crosswire?
 
     Level 0  replay a recorded incident in the Incident Console     (Python 3.11+, Node 20+, just)
-    Level 1  reproduce the bug and the fix, no agents               (+ Docker running, ports free)
+    Level 1  reproduce the bug and the fix, no agents               (+ Docker running, ports free, Node 22+)
     Level 2  the full live incident with Switch                     (+ a running Switch Console: see switch_setup.py)
 
 Every failed check prints the exact fix. Read-only: it starts, installs and changes nothing.
@@ -84,6 +84,9 @@ def level1() -> bool:
     lv("Docker Compose v2", bool(compose) and compose[0] >= 2, "update Docker Desktop (it includes Compose v2)",
        ".".join(map(str, compose)) if compose else "not found")
     lv("git", bool(toolpath.resolve().get("git")), "install git")
+    node = version(["node", "--version"]) if toolpath.resolve().get("node") else None
+    lv("Node 22+ (ShopCo's app and its tests require it: package.json engines)", bool(node) and node[0] >= 22,
+       "install Node 22 or newer (nodejs.org or `brew install node`)", ".".join(map(str, node)) if node else "not found")
     for port, what in PORTS.items():
         with socket.socket() as s:
             s.settimeout(0.5)
