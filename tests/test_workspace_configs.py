@@ -31,6 +31,8 @@ def test_rendered_settings(agent: str) -> None:
     # is NOT used: with the sandbox on, it hangs Claude Code 2.1.299 at startup (bisected, see the threat model).
     assert "blockReadsOutsideWorkingDirectories" not in s["permissions"]
     assert s["permissions"]["blockWritesOutsideWorkingDirectories"] is True
+    # context isolation: only the workspace's own instruction files load (no build-repo CLAUDE.md, no ~/.claude memory)
+    assert s["claudeMdExcludes"] == [f"!{WS}/{agent}/**"] and s["autoMemoryEnabled"] is False and "Skill" in deny
     sb = s["sandbox"]
     assert sb["enabled"] and sb["failIfUnavailable"] and sb["allowUnsandboxedCommands"] is False
     assert f"{WS}/{agent}/hooks" in sb["filesystem"]["denyWrite"] and sb["network"]["allowedDomains"] == []

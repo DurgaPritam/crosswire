@@ -47,10 +47,28 @@ COMPANY_TASK = """PREFLIGHT (a setup check, not an incident). Use your normal to
    `DRAFT {p}-0: preflight check` there too (your guard should block that: expected), then connect_to_room back here.
 5) Run exactly `./bin/test` with Bash (your one test command) and note only the number of tests passed.
 6) Run exactly `./bin/sandbox-check` with Bash and quote its SANDBOX-CHECK line verbatim.
-7) Reply here with one line per step: ok or failed (quote any error)."""
+7) List every CLAUDE.md, AGENTS.md, rules, memory or other instruction file whose contents you were given, on one line: `INSTRUCTION-FILES: <file name> (inside|outside), ...` where inside/outside says whether it is in your working directory. File names only, never full paths; `none` if there are none.
+8) Reply here with one line per step: ok or failed (quote any error)."""
 MEDIATOR_TASK = """@mediator PREFLIGHT (a setup check, not an incident). Use your normal tools:
 1) Post `@notary salt INC-9999` here. 2) Create a room document named PREFLIGHT with content `ok`.
-3) Update it to `ok 2`. 4) Delete it. 5) Reply with one line per step: ok or failed (quote any error)."""
+3) Update it to `ok 2`. 4) Delete it.
+5) List every CLAUDE.md, AGENTS.md, rules, memory or other instruction file whose contents you were given, on one line: `INSTRUCTION-FILES: <file name> (inside|outside), ...` where inside/outside says whether it is in your working directory. File names only, never full paths; `none` if there are none.
+6) Reply with one line per step: ok or failed (quote any error)."""
+
+
+def instruction_files(report: str) -> list[tuple[str, str]] | None:
+    """[(file name, inside|outside|?)] from an agent's `INSTRUCTION-FILES: CLAUDE.md (inside), ...` line; None if absent.
+    The line ends at a newline or at the next step marker (`8) ok`), which agents sometimes put on the same line."""
+    m = re.search(r"INSTRUCTION-FILES:\s*([^\n]*)", report.replace("`", ""))
+    if not m:
+        return None
+    seg = re.split(r"\s[/|]?\s*\d\)\s", " " + m.group(1))[0].strip()
+    pairs = re.findall(r"([A-Za-z0-9_.~/-]+)\s*\((inside|outside)\b[^)]*\)", seg, re.I)
+    if pairs:
+        return [(name.strip("/"), where.lower()) for name, where in pairs]
+    if re.fullmatch(r"(?i)none\.?", seg):
+        return []
+    return [(part.strip(), "?") for part in re.split(r",\s*", seg) if part.strip()]
 
 
 class Check:
@@ -208,6 +226,54 @@ def main() -> int:
                        exclude={sent["id"]})
     check("notary connected (answers help)", any("Commands" in p.message for p in mmlib.real(posts, "notary")))
 
+    # Fresh contexts: Console resumes each agent's previous conversation across restarts, so anything an agent was given
+    # before (e.g. a CLAUDE.md that is now excluded) would stay in its context. `!reset @agent` (a Switch room command)
+    # clears a RUNNING session's context and reconnects it, so each agent is woken with a mention first, then reset.
+    resets = {"payco-agent": (priya, PAY_IN), "shopco-agent": (sam, SHOP_IN), "mediator": (priya, SHARED)}
+
+    def await_reply(pattern: str, since: int, skip: set[str], seconds: int) -> set[str]:
+        got: set[str] = set()
+        until = time.monotonic() + seconds
+        while time.monotonic() < until and len(got) < len(resets):
+            time.sleep(5)
+            for agent, (h, room) in resets.items():
+                if any(re.search(pattern, m.message, re.I) and "clearing context" not in m.message.lower()
+                       for m in mmlib.real([q for q in h.posts_since(chans[room], since - 1) if q.id not in skip], agent)):
+                    got.add(agent)
+        return got
+
+    w0 = int(time.time() * 1000)
+    wids = {h.send(chans[room], f"@{agent} PREFLIGHT wake-up: reply with exactly `awake` and do nothing else.")["id"]
+            for agent, (h, room) in resets.items()}
+    awake = await_reply(r"\bawake\b", w0, wids, 240)
+    # an agent can't be reset mid-turn ("I can't reset my session while I'm working on a turn"): let the wake-up
+    # turn finish, then reset, and retry while an agent says it is still busy
+    time.sleep(15)
+    back: set[str] = set()
+    for _attempt in range(4):
+        todo = {a: v for a, v in resets.items() if a not in back}
+        if not todo:
+            break
+        r0 = int(time.time() * 1000)
+        rids = {h.send(chans[room], f"!reset @{agent}")["id"] for agent, (h, room) in todo.items()}
+        until = time.monotonic() + 120
+        busy: set[str] = set()
+        while time.monotonic() < until and len(back | busy) < len(resets):
+            time.sleep(5)
+            for agent, (h, room) in todo.items():
+                mine = mmlib.real([q for q in h.posts_since(chans[room], r0 - 1) if q.id not in rids], agent)
+                if any(re.search(r"can.?t reset", m.message, re.I) for m in mine):
+                    busy.add(agent)
+                elif any(re.search(r"reconnect|ready", m.message, re.I) and "clearing context" not in m.message.lower() for m in mine):
+                    back.add(agent)
+        if busy - back:
+            time.sleep(15)
+    missing = sorted(set(resets) - back)
+    check("every agent's context reset (!reset) and reconnected before the checks", not missing,
+          (f"no reconnect reply from {', '.join(missing)}" + (f" (not awake: {', '.join(sorted(set(resets) - awake))})"
+                                                              if set(resets) - awake else "")) if missing else "")
+    time.sleep(10)   # let the reconnect settle before the tasks arrive
+
     t0 = int(time.time() * 1000)
     ours = set()
     for human, room, agent, p, tool in ((priya, PAY_IN, "payco-agent", "D-PAY", "list_failed_deliveries"),
@@ -275,6 +341,15 @@ def main() -> int:
               _short(step5.group(0) if step5 else report))
         check(f"{agent} called its evidence tool", bool(step2) and step2.group(1).lower() == "ok" and bool(re.search(r"\b6\b", step2.group(0))),
               _short(step2.group(0) if step2 else report))
+    # context isolation: every instruction file an agent was given is inside its own workspace (claudeMdExcludes)
+    for agent, room in (("payco-agent", PAY_IN), ("shopco-agent", SHOP_IN), ("mediator", SHARED)):
+        report = " ".join(m.message for m in mmlib.real(posts_by_room[room], agent))
+        files = instruction_files(report)
+        outside = [f for f, where in files if where != "inside"]
+        check(f"{agent} loaded no instruction file from outside its workspace", files is not None and not outside
+              and any(f.lower() == "claude.md" for f, _ in files),
+              "no INSTRUCTION-FILES line in the reply" if files is None else
+              ", ".join(f"{f} ({w})" for f, w in files) or "none (its own CLAUDE.md is missing)")
     med = " ".join(m.message for m in mmlib.real(posts_by_room[SHARED], "mediator"))
     check("mediator got a salt from the notary", any(re.search(r"inc-9999-[0-9a-f]{8}", m.message) for m in mmlib.real(posts_by_room[SHARED], "notary")))
     check("mediator created, updated and deleted a room document",

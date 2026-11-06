@@ -1,4 +1,8 @@
 {
+  "claudeMdExcludes": [
+    "!{{PROJECT_DIR}}/**"
+  ],
+  "autoMemoryEnabled": false,
   "permissions": {
     "blockWritesOutsideWorkingDirectories": true,
     "deny": [
@@ -197,7 +201,8 @@
       "Read(/{{REPO_DIR}}/approver)",
       "Edit(/{{REPO_DIR}}/approver)",
       "Read(/{{REPO_DIR}}/approver/**)",
-      "Edit(/{{REPO_DIR}}/approver/**)"
+      "Edit(/{{REPO_DIR}}/approver/**)",
+      "Skill"
     ],
     "allow": [
       "Bash(./bin/sandbox-check)",
