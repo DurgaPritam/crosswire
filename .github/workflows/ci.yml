@@ -1,0 +1,70 @@
+name: CI
+
+# A clean Linux machine, the judge's path: Level 0 (replay), `just test`, Level 1 (bug + fix, no agents).
+# Level 2 needs a running Switch Console and Claude Code, so it is not run here (see `just doctor 2`).
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  clean-machine:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - uses: actions/setup-node@v4
+        with: {node-version: "20"}
+      - uses: extractions/setup-just@v2
+
+      - name: just doctor 0 1
+        run: just doctor 0 1
+
+      - name: "Level 0: replay smoke test (cold start)"
+        run: |
+          start=$(date +%s)
+          (just console-replay > console.log 2>&1 &)
+          for i in $(seq 1 180); do curl -sf http://127.0.0.1:7300/api/health >/dev/null && break; sleep 2; done
+          curl -sf http://127.0.0.1:7300/api/health
+          n=$(curl -sf "http://127.0.0.1:7300/api/replay?name=demo-run.events.jsonl" | python3 -c "import json,sys; print(len(json.load(sys.stdin)))")
+          echo "demo run: $n events"; test "$n" -ge 100
+          curl -sf http://127.0.0.1:7300/ | grep -q '<div id="root">'
+          echo "level0_seconds=$(( $(date +%s) - start ))" >> "$GITHUB_ENV"
+          pkill -f crosswire_console || true
+
+      - name: just test
+        run: |
+          start=$(date +%s)
+          just test
+          echo "test_seconds=$(( $(date +%s) - start ))" >> "$GITHUB_ENV"
+
+      - name: "Level 1: setup, up, simulate, verify-bug, verify-fixed (cold Docker builds)"
+        run: |
+          start=$(date +%s)
+          just setup
+          just up
+          just simulate
+          just verify-bug
+          just verify-fixed
+          echo "level1_seconds=$(( $(date +%s) - start ))" >> "$GITHUB_ENV"
+
+      - name: Cold-start times
+        if: always()
+        run: |
+          {
+            echo "### Cold start on a clean ubuntu-latest runner"
+            echo "| Step | Seconds |"
+            echo "|---|---|"
+            echo "| Level 0: clone to replay serving (installs Python and Node deps, builds the Console) | ${level0_seconds:-failed} |"
+            echo "| just test | ${test_seconds:-failed} |"
+            echo "| Level 1: setup, up, simulate, verify-bug, verify-fixed (builds every image) | ${level1_seconds:-failed} |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Logs on failure
+        if: failure()
+        run: |
+          tail -50 console.log || true
+          docker compose ps || true
+          docker compose logs --tail 40 || true
