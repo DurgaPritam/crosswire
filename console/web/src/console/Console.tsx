@@ -178,7 +178,7 @@ function LaneBody({ bottom, children }: { bottom: number; children: ReactNode })
   );
 }
 
-interface MsgProps { who: 'priya' | 'payco' | 'mediator' | 'notary' | 'sam' | 'shopco'; time: string; children: ReactNode; state?: 'fresh' | 'refused'; extra?: ReactNode; to?: string }
+interface MsgProps { who: 'priya' | 'payco' | 'mediator' | 'notary' | 'sam' | 'shopco'; time: string; children: ReactNode; state?: 'fresh' | 'refused'; extra?: ReactNode; to?: string; tag?: ReactNode }
 const WHO: Record<MsgProps['who'], { name: string; role: Role; agent?: boolean; glyph?: IconName; initials?: string; badge?: string; org?: string }> = {
   priya: { name: 'Priya Nair', role: 'payco', initials: 'PN', org: 'PayCo' },
   sam: { name: 'Sam Okafor', role: 'shopco', initials: 'SO', org: 'ShopCo' },
@@ -188,7 +188,7 @@ const WHO: Record<MsgProps['who'], { name: string; role: Role; agent?: boolean; 
   notary: { name: 'notary', role: 'neutral', agent: true, glyph: 'seal', badge: 'Notary' },
 };
 /** Message row: grid 32 | 1fr · gap 12 · p 12/14 · r-12 · name 13.5/20 600 · body 14/22 · meta right */
-function Message({ who, time, children, state, extra, to }: MsgProps) {
+function Message({ who, time, children, state, extra, to, tag }: MsgProps) {
   const p = WHO[who];
   return (
     <motion.div variants={rise(6)} className={cx('relative grid grid-cols-[32px_minmax(0,1fr)] gap-3 rounded-lg px-3.5 py-3 hover:bg-s2',
@@ -204,10 +204,28 @@ function Message({ who, time, children, state, extra, to }: MsgProps) {
         </div>
         <p className={cx('mt-1 text-message text-fg', state === 'refused' && 'text-fg2')}>{children}</p>
         {extra}
+        {tag && <SwitchTag>{tag}</SwitchTag>}
       </div>
     </motion.div>
   );
 }
+/** Live and replay only: which Switch feature produced this beat ("Switch · addressing policy, enforced by the server"). */
+function SwitchTag({ children }: { children: ReactNode }) {
+  return (
+    <div className="cw-switchtag mt-2 flex min-w-0 items-center gap-1.5 text-[11.5px] leading-4 text-fg3">
+      <span className="rounded-[4px] px-1 font-mono text-[10px] font-semibold uppercase tracking-[0.06em] text-fg2 shadow-[inset_0_0_0_1px_var(--cw-line2)]">Switch</span>
+      <span className="truncate">{children}</span>
+    </div>
+  );
+}
+/** The Switch feature behind a message, by sender. Accurate for every recorded run (no feature a run didn't use). */
+const SWITCH_BY_WHO: Record<string, string> = {
+  priya: 'a person in Mattermost, bridged into the Switch room', sam: 'a person in Mattermost, bridged into the Switch room',
+  'payco-agent': 'agent session (Switch Console) · role provider-responder in the shared room',
+  'shopco-agent': 'agent session (Switch Console) · role consumer-responder in the shared room',
+  mediator: 'agent session · holds the exclusive role incident-commander',
+  notary: 'protocol agent (no AI) · role notary',
+};
 function SysRow({ children }: { children: ReactNode }) {
   return <div className="cw-sysrow flex h-8 items-center gap-2 overflow-hidden whitespace-nowrap px-3.5 text-small text-fg2">{children}</div>;
 }
@@ -272,7 +290,7 @@ const Name = ({ children, small }: { children: ReactNode; small?: boolean }) => 
 
 function PayLane({ L, S, D }: { L: Layout; S: SceneState; D?: StoryData | null }) {
   return (
-    <Lane x={L.payX} y={L.laneTop} w={L.privW} h={L.laneH} role="payco" title="PayCo" sub="· private" people={<PeoplePay />}>
+    <Lane x={L.payX} y={L.laneTop} w={L.privW} h={L.laneH} role="payco" title="PayCo" sub={D ? '· private Switch room #payco-internal' : '· private'} people={<PeoplePay />}>
       {D ? <LiveLane lane="payco" S={S} D={D} bottom={S.showCrossing ? 120 : 24} /> : <>
       {(S.payLane === 'story' || S.payLane === 'drafting') && (
         <LaneBody bottom={S.showCrossing ? 120 : 24}>
@@ -296,7 +314,7 @@ function PayLane({ L, S, D }: { L: Layout; S: SceneState; D?: StoryData | null }
 
 function SharedLane({ L, S, theme, D }: { L: Layout; S: SceneState; theme: 'dark' | 'light'; D?: StoryData | null }) {
   const bottom = S.showCrossing ? 120 : S.showComposer ? 88 : 24;
-  const sub = S.isEmpty ? '· idle' : D ? `· ${D.incident.id ?? 'incident'}${D.salt ? ' · salted' : ''}` : '· INC-0001 · salted';
+  const sub = S.isEmpty ? '· idle' : D ? `· Switch room #payco-shopco-shared · ${D.incident.id ?? 'incident'}${D.salt ? ' · salted' : ''}` : '· INC-0001 · salted';
   return (
     <Lane x={L.sharedX} y={L.laneTop} w={L.sharedW} h={L.laneH} role="neutral" title="Shared room" sub={sub}
       people={<PeopleShared S={S} D={D} />}>
@@ -356,7 +374,7 @@ function SharedLane({ L, S, theme, D }: { L: Layout; S: SceneState; theme: 'dark
 
 function ShopLane({ L, S, D }: { L: Layout; S: SceneState; D?: StoryData | null }) {
   return (
-    <Lane x={L.shopX} y={L.laneTop} w={L.privW} h={L.laneH} role="shopco" title="ShopCo" sub="· private" people={<PeopleShop />}>
+    <Lane x={L.shopX} y={L.laneTop} w={L.privW} h={L.laneH} role="shopco" title="ShopCo" sub={D ? '· private Switch room #shopco-internal' : '· private'} people={<PeopleShop />}>
       {D ? <LiveLane lane="shopco" S={S} D={D} bottom={24} /> : <>
       {S.shopLane === 'story' && (
         <LaneBody bottom={0}>
@@ -419,7 +437,8 @@ function LiveItem({ m }: { m: Msg }) {
     const human = role === 'payco' ? 'Priya' : 'Sam';
     return <DraftCard id={m.dId ?? ''} idRole={role} title={m.title ?? 'Disclosure draft'} by={`by ${role === 'payco' ? 'payco-agent' : 'shopco-agent'} · ${m.time}`} rows={m.rows ?? []}
       approvedBy={m.status === 'approved' ? m.approvedBy : undefined} awaiting={m.status === 'awaiting' ? human : undefined} seam={m.status === 'approved'}
-      footer={<Meta className="inline-flex items-center gap-1">{m.status === 'approved' ? <>Approved · crossing to the shared room <Icon name="arrow" size={13} /></> : m.status === 'denied' ? 'Denied · stays private' : `${human} decides in this room`}</Meta>} />;
+      footer={<div className="flex min-w-0 flex-col gap-1"><Meta className="inline-flex items-center gap-1">{m.status === 'approved' ? <>Approved · crossing to the shared room <Icon name="arrow" size={13} /></> : m.status === 'denied' ? 'Denied · stays private' : `${human} decides in this room`}</Meta>
+        <SwitchTag>{`private room #${role}-internal · only ${role === 'payco' ? 'PayCo' : 'ShopCo'} and its agent are members`}</SwitchTag></div>} />;
   }
   if (m.kind === 'disclosure') {
     const role = COMPANY_ROLE(m.dId);
@@ -431,32 +450,34 @@ function LiveItem({ m }: { m: Msg }) {
           <Chip role="approved" icon="check">Approved by <b className="font-[650]">{m.approvedBy}</b> · {role === 'payco' ? 'PayCo' : 'ShopCo'}</Chip>
         </div>
         <DraftRows rows={[{ icon: 'hash', label: `${(m.dtype ?? 'evidence').replace(/_/g, ' ')}${m.fields ? ` · ${m.fields} field paths, lengths, hashes` : ''}`, level: m.fields ? 'fingerprint' : 'plain', value: m.fields ? undefined : 'counts only' }]} />
-        <div className="flex px-4 pb-3.5 pt-3"><Meta>{m.bytes ? <><span className="text-fg">{m.bytes} B</span> fingerprinted · </> : null}0 B customer data · 0 payload values</Meta></div>
+        <div className="flex flex-col px-4 pb-3.5 pt-3"><Meta>{m.bytes ? <><span className="text-fg">{m.bytes} B</span> fingerprinted · </> : null}0 B customer data · 0 payload values</Meta>
+          <SwitchTag>role-targeted message to the incident-commander · shared room #payco-shopco-shared</SwitchTag></div>
       </motion.div>
     );
   }
   if (m.kind === 'refusal') {
     return (<>
-      <Message who={who ?? 'shopco'} to={m.to} time={m.time} state="refused" extra={<div className="mt-2.5 flex flex-wrap gap-2"><Chip role="blocked" icon="lock">Refused by Switch</Chip><Chip role="blocked" mono>not_permitted</Chip></div>}>{m.text}</Message>
+      <Message who={who ?? 'shopco'} to={m.to} time={m.time} state="refused" tag="addressing policy · enforced by the Switch server, not the agent's prompt" extra={<div className="mt-2.5 flex flex-wrap gap-2"><Chip role="blocked" icon="lock">Refused by Switch</Chip><Chip role="blocked" mono>not_permitted</Chip></div>}>{m.text}</Message>
       <SysRow><Icon name="blocked" className="text-blocked-ink" /><span className="truncate">Switch · {m.to} can't instruct {m.who} directly</span></SysRow>
     </>);
   }
   if (m.kind === 'compare') {
     return (
-      <Message who="notary" time={m.time}>
+      <Message who="notary" time={m.time} tag="protocol agent (no AI) · role notary · compares the two approved fingerprints">
         <CompareLine text={m.text} field={m.title ?? ''} n={m.bytes ?? 0} />
       </Message>
     );
   }
   if (m.kind === 'salt') {
     return (
-      <Message who={who ?? 'notary'} time={m.time} extra={<div className="cw-code mt-2.5 flex flex-wrap gap-x-4 rounded-md bg-code px-3 py-2.5 font-mono text-[12px] leading-5 text-fg2 shadow-[inset_0_0_0_1px_var(--cw-line)]"><span><b className="font-medium text-fg">salt</b>  {m.title}</span><span className="text-fg3">HMAC-SHA256 · this incident only</span></div>}>
+      <Message who={who ?? 'notary'} time={m.time} tag="protocol agent (no AI) · role notary · one salt per incident" extra={<div className="cw-code mt-2.5 flex flex-wrap gap-x-4 rounded-md bg-code px-3 py-2.5 font-mono text-[12px] leading-5 text-fg2 shadow-[inset_0_0_0_1px_var(--cw-line)]"><span><b className="font-medium text-fg">salt</b>  {m.title}</span><span className="text-fg3">HMAC-SHA256 · this incident only</span></div>}>
         Incident salt posted. Fingerprints in this room are salted, so they compare here and nowhere else.
       </Message>
     );
   }
+  if (m.who === 'approver') return <SysRow><Icon name="check" className="text-approved-ink" /><span className="truncate">{m.text}</span><span className="shrink-0 text-fg3">· Switch protocol agent (approver)</span></SysRow>;
   if (!who) return <SysRow><Icon name="shield" className="text-fg3" /><span className="truncate">{m.text}</span></SysRow>;
-  return <Message who={who} time={m.time} state={m.fresh ? 'fresh' : undefined}>{m.text}</Message>;
+  return <Message who={who} time={m.time} state={m.fresh ? 'fresh' : undefined} tag={SWITCH_BY_WHO[m.who]}>{m.text}</Message>;
 }
 
 /* Skeletons in the exact final layout (kit: .skrow 32|1fr p 12/14 · .skcard p 16 gap 10 r 12 · .skel 10 h r 5). */
@@ -583,6 +604,7 @@ function Record({ S, D }: { S: SceneState; D?: StoryData | null }) {
       <div>
         <div className="flex items-center justify-between"><span className="font-mono text-[12px] text-fg2">{D?.incident.id ?? 'INC-0001'}</span>{pill}</div>
         <div className="mt-2 text-[20px] font-[550] leading-7 tracking-[-0.015em]">Webhook signature mismatch</div>
+        {D && <SwitchTag>room document in the shared room · only the mediator, which created it, can edit it</SwitchTag>}
         {!S.isPresent && (
           <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3">
             {meta.map(([k, v]) => (<div key={k} className="flex flex-col gap-0.5"><dt className="flex"><Label>{k}</Label></dt><dd className={cx('text-ui font-medium tabular-nums', k === 'Elapsed' && 'font-mono')}>{v}</dd></div>))}
