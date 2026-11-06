@@ -55,6 +55,7 @@ they are in the code today; nothing here is fixed yet. Severity is ranked in [Ga
 | T13 | Local process reaches another company's services | `path_guard` blocks network tools (`curl`, `wget`, `nc`, `ssh`, …) by name; each agent's MCP config lists only its own evidence server | `test_path_guard.py` | Interpreters (python/node) can open sockets; the company APIs, evidence servers and Console listen on localhost without authentication. Specific to the one-machine simulation. |
 | T14 | Local process reads agent credentials | Agents deny process inspection (`ps`, `pgrep`, `lsof`, `top`, …) and other workspaces; scripts print only PIDs and working directories | `test_path_guard.py` | One OS user for everything: anything that user can read is reachable by any of its processes. Real isolation needs separate machines, users or containers. |
 | T15 | Console exposes private lanes | The observer is read-only (it can't call Switch operations; its Gateway client refuses writes) and is served on 127.0.0.1 only | `console/server/tests/test_read_only.py` | The Console shows both companies' private rooms to anyone on the machine, by design for narration; no authentication. |
+| T16 | Agents inherit the build context | Claude Code loads `CLAUDE.md` files from every parent directory, and the runtime workspaces sit inside the build checkout, so each agent was given the build assistant's own instructions (plans, dates, internal notes). Each agent's settings now exclude every instruction file outside its workspace (`claudeMdExcludes`), turn auto memory off and deny the `Skill` tool; preflight resets every agent's context (`!reset`) and has it list the instruction files it was given | preflight check (every file inside the workspace); red-team RT14 | The check relies on the agent's own report of its context; Console resumes an agent's last conversation, so a context from before a change persists until it is reset. |
 
 ## Gaps, ranked
 
@@ -73,6 +74,7 @@ they are in the code today; nothing here is fixed yet. Severity is ranked in [Ga
 | 11 | Mediator can over-ask or mislead | T12 | **Low** | Bounded by human approval and confirmation. |
 | 12 | Console has no authentication | T15 | **Low** | Local only; read-only. |
 | 13 | One OS user for both companies | T13, T14 | **Accepted** (simulation) | Inherent to running the demo on one machine; documented in the README's limitations. |
+| 14 | Agents inherit the build context | T16 | **Medium** (found after the baseline) | An agent could repeat the build assistant's private notes in a room. |
 
 ## Status after hardening
 
@@ -89,6 +91,7 @@ and a clean live rehearsal (runs 9, 11 and 12).
 | 5 Narrow outbound guard | More secret and credential formats, hashed ASCII customer-name matching, code matching that ignores spacing and renamed identifiers | C08, C09 blocked; 0 false positives replaying 191 recorded agent posts |
 | 6 Leakage budget | At most 5 events fingerprinted per incident salt per evidence server | evidence tests |
 | 9 Unauthenticated localhost services | A per-company token on each evidence server | preflight: no token or the other company's token gets 401 |
+| 14 Build context leaked into agents | `claudeMdExcludes: ["!<workspace>/**"]`, auto memory off, `Skill` denied in every agent's settings; preflight wakes and `!reset`s each agent, then checks the instruction files it reports | RT14 leaked before the fix (both company agents named build-context details), blocked after; preflight check passes |
 
 ## Known limits
 
@@ -103,6 +106,8 @@ These remain after the hardening, by decision or because the one-machine simulat
 | 13 One OS user | Every agent, service and human tool runs as one user. The OS sandbox limits what each agent's shell can touch, but anything outside the sandbox (that user's other processes, Docker) can reach every workspace, the approver's key volume and both ledgers. | Inherent to the demo; real isolation needs separate machines, users or containers. |
 
 Other limits found while hardening:
+
+- **Context isolation is checked by the agent's own report.** Preflight asks each agent which instruction files it was given; settings tests and the RT14 scenario back that up, but nothing reads the model's context directly. The Console's own system prompt and the Switch skill are delivered by design and are not files in the workspace.
 
 - **Reads outside the workspace.** `blockReadsOutsideWorkingDirectories` is not used: with the OS sandbox on, it hangs Claude Code 2.1.299 at startup (bisected). Outside reads are still blocked by the deny rules and `path_guard` for file tools, and by the sandbox's `denyRead` for Bash.
 - **What an approval binds.** The approver signs the draft's canonical evidence (D-id, type, event, salt and every JSON block, re-serialised), not its exact bytes: agents re-wrap and re-indent the block when posting (0 of 8 posts matched byte for byte, 8 of 8 matched canonically). To keep unapproved text out, a disclosure post may carry only the evidence block and leading @mentions.

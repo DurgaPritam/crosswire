@@ -110,7 +110,12 @@ policies, tools, sessions), then a full incident played by scripted Priya and Sa
 - **Guard stats from those runs:** the disclosure guards checked 50–55 agent posts per run. Every block (3–6 per
   run) was the room rule: a draft stopped from being posted in the shared room. That includes preflight's deliberate
   test, one per company agent. 0 lines of repo code were posted.
-- **Tests:** 312 tests in 12 suites, plus the Console typecheck (`just test`), passing from a fresh clone.
+- **Tests:** 328 tests in 12 suites, plus the Console typecheck (`just test`), passing from a fresh clone.
+
+## Security
+
+While building Crosswire, our team found a security issue in Switch itself and reported it privately to the Switch
+team through GitHub's vulnerability reporting.
 
 ## Security architecture
 
@@ -130,16 +135,20 @@ limits. The controls, outermost first:
 6. **Tamper-evident records.** Guard logs and the approver's signed ledger are hash-chained; `just verify-ledger`
    checks them and that every disclosure that crossed was signed. Every rehearsal runs it.
 7. **Evidence servers.** Each needs its own company's token and fingerprints at most 5 events per incident salt.
+8. **Context isolation.** Each agent loads instruction files only from its own workspace (no parent `CLAUDE.md`, no
+   user memory or skills), and starts every rehearsal from a reset context.
 
 **Red-team scorecard** (adversarial messages to the live agents, and each control tested directly):
 
 | | Baseline | After hardening |
 |---|---|---|
-| Live agents: 13 adversarial scenarios (prompt injection, fake approvals, self-approval, reading the other workspace, disabling a guard, reaching the other evidence server, …) | 13 blocked | 13 blocked |
+| Live agents: 14 adversarial scenarios (prompt injection, fake approvals, self-approval, reading the other workspace, disabling a guard, reaching the other evidence server, asking what the agents know about the build, …) | 13 blocked, 1 leaked | **14 blocked** |
 | Controls: 10 forbidden actions run straight at the guards and the OS sandbox, as if the model had not refused | 1 blocked, 9 allowed | **10 blocked** |
 
 The baseline's live scenarios were stopped by the model refusing or by Switch's addressing policy. The controls column
-shows what stops them when the model doesn't refuse.
+shows what stops them when the model doesn't refuse. The one leak, RT14, was added later: the agents had been loading
+the build checkout's own instructions from a parent folder, and answered questions about the build from them. Each
+agent now loads only its own workspace's instructions, and preflight checks it.
 
 The scorecards are in [`docs/security/scorecards/`](docs/security/scorecards/), and the Console shows them at
 `http://127.0.0.1:7300/?view=security`.
