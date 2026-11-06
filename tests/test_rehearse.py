@@ -124,7 +124,7 @@ def test_backfill_refusals_adds_only_missing_ones(tmp_path):
     assert rehearse.backfill_refusals(rec, [("payco-shopco-shared", post)]) == 1
     assert rehearse.backfill_refusals(rec, [("payco-shopco-shared", post)]) == 0   # already there
     ev = json.loads(rec.read_text().splitlines()[-1])
-    assert ev["kind"] == "refusal" and ev["by"] == "payco-agent" and ev["to"] == "shopco-agent" and ev["backfilled"] == "mattermost"
+    assert ev["kind"] == "refusal" and ev["by"] == "payco-agent" and ev["to"] == "shopco-agent" and ev["backfilled"] == "switch-history"
 
 
 
