@@ -484,7 +484,7 @@ function LiveItem({ m }: { m: Msg }) {
           <span className="truncate text-fg">{r ? `${r[1]} signed · ${r[2]} by ${r[3]}` : not ? `Not signed: ${not[1]}` : m.text}</span>
           <Meta className="ml-auto shrink-0">{m.time}</Meta>
         </div>
-        <SwitchTag>protocol agent (no AI) · approver · signs only what the owner addresses to it</SwitchTag>
+        <SwitchTag>protocol agent (no AI) · approver</SwitchTag>
       </div>
     );
   }
