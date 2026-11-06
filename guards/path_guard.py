@@ -136,6 +136,11 @@ def check_path(raw: str, cwd: str, root: str, what: str) -> None:
         raise Blocked(f"{what} {raw!r} resolves to {resolved}, outside the project {root}")
 
 
+def glob_in(pattern: str, cwd: str) -> list[str]:
+    """glob relative to cwd. Not glob.glob(root_dir=...): hooks run on the system python3, which may be 3.9."""
+    return glob.glob(pattern if os.path.isabs(pattern) else os.path.join(glob.escape(cwd), pattern))
+
+
 def glob_static_prefix(pattern: str) -> str:
     parts = []
     for part in pattern.split("/"):
@@ -209,7 +214,7 @@ def check_bash(command: str, cwd: str, root: str) -> None:
             if not candidate or candidate.startswith("-") and "=" not in candidate:
                 continue
             if any(c in GLOB_CHARS for c in candidate):
-                for match in glob.glob(candidate, root_dir=cwd):
+                for match in glob_in(candidate, cwd):
                     resolved = resolve(match, cwd)
                     if not inside(resolved, root) and not allowed_outside(resolved):
                         raise Blocked(f"glob {candidate!r} matches {resolved}, outside the project")
