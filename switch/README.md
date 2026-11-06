@@ -1,47 +1,51 @@
-# Setting up Switch for Crosswire
+# Setting up Switch for Crosswire (Level 2)
 
-Click-by-click setup. Claude Code adds `crosswire.template.yaml` in Phase 7.5 and refines this guide.
+One command does the Switch side: `just switch-setup`. It checks every prerequisite and prints the exact fix for
+anything missing, runs `scripts/phase7.py all`, then reads the result back from Switch. Every step is idempotent, so
+re-run it after fixing anything. On a machine that already has the accounts below it takes about 2½ minutes.
 
-## 1. Users and identities (Gateway)
-1. Create Switch users `priya`, `sam` and `host` (`host` = admin; owns the mediator and notary).
-2. Create matching Mattermost accounts and **link (claim) each one to its Switch user**. Unlinked accounts match nobody in addressing rules.
-3. For recording: two browser profiles, Priya and Sam.
+```bash
+just doctor 2          # prerequisites only, read-only
+just switch-setup      # wire Crosswire into Switch
+```
 
-## 2. Agents (Console)
-| Agent | Provider | Working dir | Owner |
-|---|---|---|---|
-| `payco-agent` | Claude Code | `workspace/payco` | `priya` |
-| `shopco-agent` | Claude Code | `workspace/shopco` | `sam` |
-| `mediator` | Claude Code | `workspace/mediator` | `host` |
-| `notary` | custom (`neutral/notary`) | n/a | `host` |
+## What only a person can do (once)
 
-VERIFY: the registering user becomes the owner. Keep **bypass permissions off**.
+1. **Install and open Switch Console.** It starts the local Switch server and Mattermost, and registers this machine.
+2. **Turn on the Mattermost bridge:** Switch Console → Admin → Status → Mattermost on.
+3. **Put the Switch admin login in `.env`** (`SWITCH_ADMIN_EMAIL`, `SWITCH_ADMIN_PASSWORD`; see `.env.example`).
+4. **Create the Mattermost accounts `priya` and `sam`** (Mattermost System Console → Users) and put their passwords in
+   `.env` as `MM_PRIYA_PASSWORD` and `MM_SAM_PASSWORD`. Only a Mattermost admin can create accounts, so this stays
+   manual.
+5. Optional, for the red-team suite: a third Mattermost account that plays the outsider (`MM_USER`, `MM_PASSWORD`).
+6. **Install Claude Code and log in once** (`claude` in a terminal). Switch Console runs the three agents with it.
+   Keep bypass permissions off.
 
-## 3. Addressing policies (Console: Your Agents → agent → Who can talk to your agent)
-| Agent | Rule | Rooms | Users | Agents |
-|---|---|---|---|---|
-| `payco-agent` | 1 | `#payco-internal` | `owner` | none |
-| | 2 | `#payco-shopco-shared` | `owner` | `mediator` |
-| `shopco-agent` | 1 | `#shopco-internal` | `owner` | none |
-| | 2 | `#payco-shopco-shared` | `owner` | `mediator` |
-| `mediator` | 1 | `#payco-shopco-shared` | `*` | `payco-agent`, `shopco-agent`, `notary` |
-| `notary` | 1 | `#payco-shopco-shared` | `*` | `mediator` |
+## What `just switch-setup` does
 
-Once an agent has any rule, everything not admitted is denied, and a refused message gets a visible reply.
+| Step | Through | Result |
+|---|---|---|
+| users | Gateway API | Switch users Priya and Sam (passwords saved to `.env`, never printed) |
+| notary | agent bridge | registers the notary (a Switch protocol agent, no AI) and starts its container |
+| template | Gateway API | one agent template + room template: `payco-agent`, `shopco-agent`, `mediator` (Claude Code, run by Switch Console in `workspace/<agent>`) and the three rooms |
+| rooms | Gateway API | `#payco-internal`, `#shopco-internal`, `#payco-shopco-shared`, linked; ids to `switch/state/rooms.json` |
+| claims | Gateway API + Mattermost | links Priya's and Sam's Mattermost accounts to their Switch users (identity claims) |
+| policies | Gateway API | addressing policies (below); read-backs in `switch/policies/` |
+| approver | agent bridge + Gateway | registers the approver (Switch protocol agent), adds it to the rooms, sets its policy, starts its container |
+| roles | room command | `incident-commander` (exclusive), `provider-responder`, `consumer-responder`, `notary`; checked with `!roles` |
+| smoke | Mattermost | Priya reaches `@payco-agent`; Sam gets a visible refusal; `@notary help`; a room-specific `@mediator` answer |
+| instructions | Gateway API | each agent's Switch instructions match its playbook |
+| observer | agent bridge + Gateway | the Incident Console's read-only observer agent, in all three rooms |
 
-## 4. Rooms, roles, links
-Create these rooms:
-- `#payco-internal`: Priya and `payco-agent`
-- `#shopco-internal`: Sam and `shopco-agent`
-- `#payco-shopco-shared`: Priya, Sam, and all four agents. Paste `shared-room-instructions.md` into its instructions field.
+## Addressing policies (set by Switch, enforced on the server)
 
-Then:
-- **Roles** in the shared room: `incident-commander` (exclusive), `provider-responder`, `consumer-responder`, `notary`. Ask each agent to take its role, and check with `!roles`.
-  - An agent can hold **one role at a time, across all rooms**.
-- **Links:** link both internal rooms to the shared room.
+| Agent | Rooms | Who may address it |
+|---|---|---|
+| `payco-agent` | `#payco-internal` · `#payco-shopco-shared` | Priya · Priya and the mediator |
+| `shopco-agent` | `#shopco-internal` · `#payco-shopco-shared` | Sam · Sam and the mediator |
+| `mediator` | `#payco-shopco-shared` | Priya, Sam, `payco-agent`, `shopco-agent`, `notary` |
+| `notary` | `#payco-shopco-shared` | Priya, Sam, the mediator |
+| `approver` | `#payco-internal` · `#shopco-internal` | Priya · Sam (an approval is `@approver approve D-…`) |
+| `console-observer` | all three | nobody (it only listens) |
 
-## 5. Smoke test
-- [ ] `!list-documents` and `!roles` work in the shared room
-- [ ] Priya → `@payco-agent hello` works. Sam → `@payco-agent hello` gets a **visible refusal**.
-- [ ] `@notary help` replies
-- [ ] `@mediator who are you and what is this room for?` gets a room-specific answer
+Once an agent has any rule, everything not admitted is refused, and Switch posts a visible reply saying so.
