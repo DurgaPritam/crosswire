@@ -148,12 +148,20 @@ def _up(port: int) -> bool:
 live = pytest.mark.skipif(not (_up(7101) and _up(7102)), reason="evidence servers not running (just up)")
 
 
-async def _call_all(url: str) -> dict[str, object]:
+def _token(company: str) -> str | None:
+    f = Path(__file__).resolve().parents[2] / "switch" / "state" / "evidence-tokens.json"
+    return json.loads(f.read_text()).get(company) if f.exists() else None
+
+
+async def _call_all(url: str, company: str) -> dict[str, object]:
+    import httpx2
     from mcp.client.session import ClientSession
     from mcp.client.streamable_http import streamable_http_client
 
     results: dict[str, object] = {}
-    async with streamable_http_client(url) as (read, write, *_):
+    tok = _token(company)
+    client = httpx2.AsyncClient(headers={"Authorization": f"Bearer {tok}"} if tok else {}, timeout=30)
+    async with client, streamable_http_client(url, http_client=client) as (read, write, *_):
         async with ClientSession(read, write) as session:
             await session.initialize()
             names = [t.name for t in (await session.list_tools()).tools]
@@ -168,8 +176,8 @@ async def _call_all(url: str) -> dict[str, object]:
 
 @live
 def test_live_tools_never_return_names_and_pass_check() -> None:
-    payco = asyncio.run(_call_all("http://localhost:7101/mcp"))
-    shopco = asyncio.run(_call_all("http://localhost:7102/mcp"))
+    payco = asyncio.run(_call_all("http://localhost:7101/mcp", "payco"))
+    shopco = asyncio.run(_call_all("http://localhost:7102/mcp", "shopco"))
     assert set(payco["_tools"]) == {"list_failed_deliveries", "get_delivery_fingerprint", "summarize_failures", "get_signing_spec"}
     assert set(shopco["_tools"]) == {"list_signature_failures", "get_verification_fingerprint", "get_verification_spec"}
     assert_no_values(payco)

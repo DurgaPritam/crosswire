@@ -9,6 +9,9 @@ from mcp.server.mcpserver import MCPServer
 from mcp.server.transport_security import TransportSecuritySettings
 
 from . import tools
+from .auth import Budget
+
+BUDGET = Budget()
 
 DB = os.environ.get("PAYCO_DB", "/data/payco/deliveries.db")
 DOCS = os.environ.get("PAYCO_DOCS", "/docs/webhooks.md")
@@ -32,7 +35,9 @@ def list_failed_deliveries(since_minutes: int = 1440) -> list[dict[str, Any]]:
 def get_delivery_fingerprint(event_id: str, salt: str) -> dict[str, Any]:
     """wirecheck fingerprint of the exact bytes PayCo sent for one event, salted with the incident salt."""
     with tools.connect_ro(DB) as db:
-        return tools.get_delivery_fingerprint(db, event_id, salt)
+        result = tools.get_delivery_fingerprint(db, event_id, salt)
+    BUDGET.spend(salt, event_id)   # only a fingerprint that was produced counts
+    return result
 
 
 @server.tool()
@@ -50,9 +55,13 @@ def get_signing_spec() -> dict[str, Any]:
 
 def main() -> None:
     hosts = [f"localhost:{PORT}", f"127.0.0.1:{PORT}", f"payco-evidence:{PORT}"]
-    server.run("streamable-http", host="0.0.0.0", port=PORT, transport_security=TransportSecuritySettings(
+    import uvicorn
+
+    from .auth import require_token
+    app = server.streamable_http_app(host="0.0.0.0", transport_security=TransportSecuritySettings(
         enable_dns_rebinding_protection=True, allowed_hosts=hosts,
         allowed_origins=[f"http://{h}" for h in hosts]))
+    uvicorn.run(require_token(app), host="0.0.0.0", port=PORT, log_level="warning")
 
 
 if __name__ == "__main__":

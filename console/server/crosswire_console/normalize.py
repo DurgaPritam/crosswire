@@ -18,7 +18,7 @@ from typing import Any, Iterable
 LANE = {"payco-internal": "payco", "payco-shopco-shared": "shared", "shopco-internal": "shopco"}
 COMPANY_OF = {"D-PAY": "payco", "D-SHOP": "shopco"}
 
-DRAFT_RE = re.compile(r"^\s*DRAFT\s+(D-(?:PAY|SHOP)-\d+)\s*:\s*(.*)$", re.M)
+DRAFT_RE = re.compile(r"^\s*(?:@[\w.-]+[\s,:]*)*DRAFT\s+(D-(?:PAY|SHOP)-\d+)\s*:\s*(.*)$", re.M)
 HEADER_RE = re.compile(r"\[(D-(?:PAY|SHOP)-\d+)\s*[·|\-:]\s*approved by @(\w+)\]")
 TYPE_RE = re.compile(r"^\s*type\s*:\s*(\w+)", re.M)
 EVENT_RE = re.compile(r"^\s*event\s*:\s*(\S+)", re.M)

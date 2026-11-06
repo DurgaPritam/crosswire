@@ -36,6 +36,7 @@ verify-bug:
 
 # Apply reference-fixes in a temp copy; expect 60/60
 verify-fixed:
+    ./scripts/ensure-venv.sh
     ./scripts/verify-fixed.sh
 
 # Run every test suite
@@ -50,6 +51,14 @@ notary:
 # Rebuild and (re)start the notary container from the current code
 notary-up:
     docker compose --profile notary up -d --build notary
+
+# Check the hash-chained ledgers: guard logs, the approver's signed ledger, and that every allowed disclosure was signed
+verify-ledger:
+    .venv/bin/python scripts/verify_ledger.py
+
+# Restart the approver so it re-pins the agents' controls (after setup re-renders them)
+approver-restart:
+    docker compose up -d --build approver && docker compose restart approver
 
 # One-time Notary registration (NOTARY_REGISTRATION_TOKEN = a registration key minted by `host`)
 notary-register *args:

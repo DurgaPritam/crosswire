@@ -36,3 +36,15 @@ def test_replay_mode_refuses_non_get(monkeypatch):
     for path in ("/api/run", "/api/record", "/api/record/stop"):
         status, body = asyncio.run(s.route("POST", path, {}, b"{}"))
         assert status == 405 and body["error"] == "replay mode is read-only"
+
+
+def test_security_summary_is_get_only_data(tmp_path, monkeypatch):
+    import json
+    monkeypatch.setattr(app, "SCORECARDS", tmp_path)
+    (tmp_path / "after.json").write_text(json.dumps({"label": "after", "ts": "t", "counts": {"blocked": 13},
+        "results": [{"id": "RT01", "title": "x", "threat": "T4", "verdict": "blocked", "reasons": ["r"], "evidence": ["post"]}]}))
+    s = app.Server(live=False)
+    status, body = asyncio.run(s.route("GET", "/api/security", {}, b""))
+    assert status == 200 and body["scorecards"][0]["results"][0]["verdict"] == "blocked"
+    assert "evidence" not in body["scorecards"][0]["results"][0]      # posts' text stays in the scorecard files
+    assert asyncio.run(s.route("POST", "/api/security", {}, b"{}"))[0] == 405

@@ -1,6 +1,9 @@
 {
+  "claudeMdExcludes": [
+    "!{{PROJECT_DIR}}/**"
+  ],
+  "autoMemoryEnabled": false,
   "permissions": {
-    "blockReadsOutsideWorkingDirectories": true,
     "blockWritesOutsideWorkingDirectories": true,
     "deny": [
       "Edit(/{{PROJECT_DIR}}/hooks/**)",
@@ -190,9 +193,19 @@
       "Bash(git push *)",
       "Bash(git remote *)",
       "WebFetch",
-      "WebSearch"
+      "WebSearch",
+      "Read(/{{REPO_DIR}}/console)",
+      "Edit(/{{REPO_DIR}}/console)",
+      "Read(/{{REPO_DIR}}/console/**)",
+      "Edit(/{{REPO_DIR}}/console/**)",
+      "Read(/{{REPO_DIR}}/approver)",
+      "Edit(/{{REPO_DIR}}/approver)",
+      "Read(/{{REPO_DIR}}/approver/**)",
+      "Edit(/{{REPO_DIR}}/approver/**)",
+      "Skill"
     ],
     "allow": [
+      "Bash(./bin/sandbox-check)",
       "Bash(./bin/test *)",
       "Bash(./bin/test)",
       "Bash(git status*)",
@@ -220,7 +233,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR/hooks/disclosure_guard.py\" --track-room",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/hooks/disclosure_guard.py\" --track-room --pins \"{{REPO_DIR}}/switch/state/pins.json\"",
             "timeout": 10
           }
         ]
@@ -230,7 +243,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR/hooks/disclosure_guard.py\"",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/hooks/disclosure_guard.py\" --pins \"{{REPO_DIR}}/switch/state/pins.json\" --approver http://127.0.0.1:7400",
             "timeout": 20
           }
         ]
@@ -240,7 +253,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR/hooks/path_guard.py\"",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/hooks/path_guard.py\" --pins \"{{REPO_DIR}}/switch/state/pins.json\"",
             "timeout": 10
           }
         ]
@@ -251,11 +264,64 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR/hooks/disclosure_guard.py\" --session-start",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/hooks/disclosure_guard.py\" --session-start --pins \"{{REPO_DIR}}/switch/state/pins.json\"",
             "timeout": 10
           }
         ]
       }
     ]
+  },
+  "sandbox": {
+    "enabled": true,
+    "failIfUnavailable": true,
+    "allowUnsandboxedCommands": false,
+    "autoAllowBashIfSandboxed": false,
+    "filesystem": {
+      "denyWrite": [
+        "{{PROJECT_DIR}}/hooks",
+        "{{PROJECT_DIR}}/.claude",
+        "{{PROJECT_DIR}}/.mcp.json",
+        "{{PROJECT_DIR}}/.disclosures",
+        "{{PROJECT_DIR}}/.switch",
+        "{{PROJECT_DIR}}/CLAUDE.md",
+        "{{PROJECT_DIR}}/AGENTS.md",
+        "{{PROJECT_DIR}}/bin"
+      ],
+      "denyRead": [
+        "{{SHOPCO_DIR}}",
+        "{{MEDIATOR_DIR}}",
+        "{{REPO_DIR}}/.claude",
+        "{{REPO_DIR}}/.env",
+        "{{REPO_DIR}}/.env.example",
+        "{{REPO_DIR}}/.git",
+        "{{REPO_DIR}}/.mcp.json",
+        "{{REPO_DIR}}/.tmp",
+        "{{REPO_DIR}}/.venv",
+        "{{REPO_DIR}}/README.md",
+        "{{REPO_DIR}}/companies",
+        "{{REPO_DIR}}/console",
+        "{{REPO_DIR}}/docker-compose.yml",
+        "{{REPO_DIR}}/docs",
+        "{{REPO_DIR}}/evidence",
+        "{{REPO_DIR}}/guards",
+        "{{REPO_DIR}}/justfile",
+        "{{REPO_DIR}}/neutral",
+        "{{REPO_DIR}}/packages",
+        "{{REPO_DIR}}/reference-fixes",
+        "{{REPO_DIR}}/rehearsals",
+        "{{REPO_DIR}}/requirements-dev.txt",
+        "{{REPO_DIR}}/scripts",
+        "{{REPO_DIR}}/spikes",
+        "{{REPO_DIR}}/switch",
+        "{{REPO_DIR}}/tests",
+        "{{HOME}}/.ssh",
+        "{{HOME}}/.aws",
+        "{{HOME}}/.config"
+      ]
+    },
+    "network": {
+      "allowedDomains": [],
+      "allowLocalBinding": false
+    }
   }
 }

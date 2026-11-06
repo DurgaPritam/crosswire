@@ -28,6 +28,7 @@ import toolpath  # noqa: E402  (scripts/, on sys.path via .sources)
 WEB = Path(os.environ.get("CONSOLE_WEB_DIR") or ROOT / "console/web/dist")  # CONSOLE_WEB_DIR: serve a snapshot build
 FIXTURES = ROOT / "console/fixtures"
 REHEARSALS = ROOT / "rehearsals"
+SCORECARDS = ROOT / "docs" / "security" / "scorecards"   # committed red-team scorecards (baseline and after)
 LOCK = ROOT / ".tmp/rehearsal.lock"
 PORT = int(os.environ.get("CONSOLE_PORT", "7300"))
 NAME_RE = re.compile(r"^[\w.-]+$")
@@ -104,6 +105,21 @@ class Runner:
 def replay_files() -> list[str]:
     files = sorted(FIXTURES.glob("*.events.jsonl")) + sorted(REHEARSALS.glob("*.events.jsonl"))
     return list(dict.fromkeys(f.name for f in files))  # a fixture copy of a rehearsal is listed once (fixtures win)
+
+
+def security_summary() -> dict[str, Any]:
+    """Read-only: the committed red-team scorecards (docs/security/scorecards/*.json), newest last per kind."""
+    cards = []
+    for f in sorted(SCORECARDS.glob("*.json")) if SCORECARDS.exists() else []:
+        try:
+            d = json.loads(f.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        cards.append({"name": f.stem, "label": d.get("label"), "ts": d.get("ts"), "counts": d.get("counts"),
+                      "control_counts": d.get("control_counts"),
+                      "results": [{k: r.get(k) for k in ("id", "title", "threat", "verdict", "reasons")} for r in d.get("results", [])],
+                      "controls": [{k: r.get(k) for k in ("id", "title", "threat", "verdict", "reasons")} for r in d.get("controls", [])]})
+    return {"scorecards": cards}
 
 
 def read_replay(name: str) -> list[dict[str, Any]] | None:
@@ -197,6 +213,8 @@ class Server:
                          "recording": self.bus.recording.name if self.bus.recording else None, "uptime_s": int(time.time() - self.t0)}
         if path == "/api/config":
             return 200, self.config()
+        if path == "/api/security":   # read-only in both modes
+            return (200, security_summary()) if method == "GET" else (405, {"ok": False, "error": "read-only"})
         if path == "/api/replays":
             return 200, replay_files()
         if path == "/api/replay":

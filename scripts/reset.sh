@@ -23,6 +23,7 @@ for agent in payco shopco mediator; do
   done
 done
 
+command -v chflags >/dev/null && [ -d workspace ] && chflags -R nouchg workspace 2>/dev/null  # setup made the controls immutable
 rm -rf workspace
 rm -f .tmp/last-simulate.json  # its event ids belonged to the wiped volumes
 ./scripts/setup.sh

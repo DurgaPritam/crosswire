@@ -60,9 +60,10 @@ features Crosswire relies on, and where they're used:
 | ShopCo can't instruct PayCo's agent (and vice versa) | Switch addressing policies naming the allowed people and the mediator (server-side; agents can't widen their own) | Hard |
 | Company agents can't edit the incident record | Switch: only the creating agent can edit a room document | Hard |
 | Agents never see raw payloads or names | Evidence MCP servers run in Docker; private data is never mounted into agent directories | Hard |
-| Agents can't read the other company's code | Claude Code deny rules for file tools plus the `path_guard` hook for Bash (the working directory alone is not a boundary: see Proof) | Medium |
-| No code, secrets or personal data posted to Switch | The `disclosure_guard` hook on every Switch post tool | Medium |
-| A person approves every disclosure | Approval files checked by the disclosure guard, plus the agents' instructions | Soft |
+| Agents can't read the other company's code | Claude Code deny rules and `path_guard` for file tools, and an OS sandbox around every agent's shell (the working directory alone is not a boundary: see Proof) | Strong |
+| No code, secrets or personal data posted to Switch | The `disclosure_guard` hook on every Switch post tool (code lines even with renamed identifiers, secrets, emails, customer names) | Medium |
+| A person approves every disclosure | The approver service signs only Priya's or Sam's own `approve D-…`, bound to that draft's evidence and the current incident; the disclosure guard checks the signature at posting time | Strong |
+| Agents can't switch off their own guards | Guards, settings and playbooks are pinned by hash and immutable; the guards and the approver refuse to work if anything changed | Strong |
 
 ## Quick start
 
@@ -109,7 +110,48 @@ policies, tools, sessions), then a full incident played by scripted Priya and Sa
 - **Guard stats from those runs:** the disclosure guards checked 50–55 agent posts per run. Every block (3–6 per
   run) was the room rule: a draft stopped from being posted in the shared room. That includes preflight's deliberate
   test, one per company agent. 0 lines of repo code were posted.
-- **Tests:** 232 tests in 10 suites, plus the Console typecheck (`just test`), passing from a fresh clone.
+- **Tests:** 328 tests in 12 suites, plus the Console typecheck (`just test`), passing from a fresh clone.
+
+## Security
+
+While building Crosswire, our team found a security issue in Switch itself and reported it privately to the Switch
+team through GitHub's vulnerability reporting.
+
+## Security architecture
+
+Crosswire is a security product, so it is tested like one. [`docs/security/threat-model.md`](docs/security/threat-model.md)
+lists what it protects, who might attack it, 15 threats with their controls and tests, the ranked gaps and the known
+limits. The controls, outermost first:
+
+1. **Switch addressing policies.** Server-side; one company's agent can't instruct the other's.
+2. **An OS sandbox around every agent's shell.** It writes only inside its own working directory (not its controls),
+   reads neither the other workspaces nor the build repo, and has no network.
+3. **Immutable, pinned controls.** Guards, settings, MCP config and playbooks are hashed at setup and made immutable;
+   the guards fail closed if anything changed.
+4. **The approver.** A small Docker service with its own signing key. It signs an approval only when Priya or Sam
+   replies `approve D-…` from their own account, bound to that draft's evidence, the current incident and the
+   notary's salt. The disclosure guard checks the signature before anything crosses.
+5. **The outbound guard.** Code (even with renamed identifiers), secrets, emails and customer names never leave.
+6. **Tamper-evident records.** Guard logs and the approver's signed ledger are hash-chained; `just verify-ledger`
+   checks them and that every disclosure that crossed was signed. Every rehearsal runs it.
+7. **Evidence servers.** Each needs its own company's token and fingerprints at most 5 events per incident salt.
+8. **Context isolation.** Each agent loads instruction files only from its own workspace (no parent `CLAUDE.md`, no
+   user memory or skills), and starts every rehearsal from a reset context.
+
+**Red-team scorecard** (adversarial messages to the live agents, and each control tested directly):
+
+| | Baseline | After hardening |
+|---|---|---|
+| Live agents: 14 adversarial scenarios (prompt injection, fake approvals, self-approval, reading the other workspace, disabling a guard, reaching the other evidence server, asking what the agents know about the build, …) | 13 blocked, 1 leaked | **14 blocked** |
+| Controls: 10 forbidden actions run straight at the guards and the OS sandbox, as if the model had not refused | 1 blocked, 9 allowed | **10 blocked** |
+
+The baseline's live scenarios were stopped by the model refusing or by Switch's addressing policy. The controls column
+shows what stops them when the model doesn't refuse. The one leak, RT14, was added later: the agents had been loading
+the build checkout's own instructions from a parent folder, and answered questions about the build from them. Each
+agent now loads only its own workspace's instructions, and preflight checks it.
+
+The scorecards are in [`docs/security/scorecards/`](docs/security/scorecards/), and the Console shows them at
+`http://127.0.0.1:7300/?view=security`.
 
 ## Honest limitations
 
@@ -119,8 +161,8 @@ policies, tools, sessions), then a full incident played by scripted Priya and Sa
 - **Both companies share one OS user.** Anything that user can read is reachable by any of its processes, so
   our agents deny process inspection and each other's workspaces. That's a mitigation, not a fix; running each
   company on its own machine or container would close it.
-- **The approval ledger is written by the agents themselves** (checked by a hook). A signed approval service would
-  make it hard.
+- **Approvals are as strong as Priya's and Sam's Mattermost accounts.** The approver signs what those accounts
+  approve; whoever can post as them can approve.
 
 ## Repository layout
 

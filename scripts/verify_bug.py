@@ -37,7 +37,7 @@ def copy_db(project: str, service: str, path: str, dest: Path) -> Path:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--expect", choices=["bug", "fixed"], default="bug")
-    ap.add_argument("--project", default="crosswire")
+    ap.add_argument("--project", default=os.environ.get("COMPOSE_PROJECT_NAME") or "crosswire")
     ap.add_argument("--sim", default=str(ROOT / ".tmp" / "last-simulate.json"))
     args = ap.parse_args()
 

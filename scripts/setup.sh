@@ -92,14 +92,18 @@ else
   echo "workspace/mediator exists, skipping"
 fi
 
+# Each agent's controls are made immutable (macOS user-immutable flag) after rendering; lift it to re-render.
+unlock_controls() { [ -d "$WS" ] && command -v chflags >/dev/null && chflags -R nouchg "$WS" 2>/dev/null; return 0; }
+unlock_controls
+
 # Guards: one canonical copy in guards/, copied into every agent workspace on every run.
 install_guards() { # name, guards...
   local name="$1"; shift
   mkdir -p "$WS/$name/hooks"
   for g in "$@"; do cp "$ROOT/guards/$g" "$WS/$name/hooks/$g"; done
 }
-install_guards payco path_guard.py disclosure_guard.py
-install_guards shopco path_guard.py disclosure_guard.py
+install_guards payco path_guard.py disclosure_guard.py disclosure_canon.py ed25519_verify.py ledger_chain.py
+install_guards shopco path_guard.py disclosure_guard.py disclosure_canon.py ed25519_verify.py ledger_chain.py
 install_guards mediator path_guard.py
 
 # Test environments for the agents' own test commands (gitignored inside each workspace).
@@ -125,9 +129,79 @@ print("  wrote .disclosures/rooms.json for payco and shopco (guard rule g)")
 PY
 fi
 
+# Customer name tokens for the guard's customer_name rule, as sha256 of each lower-cased ASCII name part (both
+# companies serve the same simulated customers). The names themselves never land in a workspace.
+python3 - "$ROOT" "$WS" <<'PY'
+import hashlib, json, sys
+from pathlib import Path
+sys.path.insert(0, str(Path(sys.argv[1]) / "scripts"))
+from simulate import customers
+tokens = sorted({hashlib.sha256(part.lower().encode()).hexdigest()
+                 for c in customers() for part in c["name"].split() if part.isascii() and len(part) >= 3})
+for company in ("payco", "shopco"):
+    d = Path(sys.argv[2]) / company / ".disclosures"; d.mkdir(parents=True, exist_ok=True)
+    (d / "customer-names.json").write_text(json.dumps({"tokens": tokens}))
+print(f"  wrote .disclosures/customer-names.json for payco and shopco ({len(tokens)} hashed name tokens)")
+PY
+
 render_settings payco shopco
 render_settings shopco payco
 render_settings mediator ""
+
+# Per-company evidence-server tokens (gap 9): made once, kept across resets in the gitignored switch/state/. Each agent's
+# .mcp.json sends its own company's token; each evidence container gets its token from switch/state/<company>-evidence.env.
+python3 - "$ROOT" "$WS" <<'PY'
+import json, os, secrets, sys
+from pathlib import Path
+root, ws = Path(sys.argv[1]), Path(sys.argv[2])
+state = root / "switch" / "state"; state.mkdir(parents=True, exist_ok=True)
+f = state / "evidence-tokens.json"
+tokens = json.loads(f.read_text()) if f.exists() else {}
+for company in ("payco", "shopco"):
+    tokens.setdefault(company, secrets.token_urlsafe(32))
+old = os.umask(0o077)
+try:
+    f.write_text(json.dumps(tokens))
+    for company, tok in tokens.items():
+        (state / f"{company}-evidence.env").write_text(f"EVIDENCE_TOKEN={tok}\n")
+finally:
+    os.umask(old)
+for company in ("payco", "shopco"):
+    m = ws / company / ".mcp.json"
+    if m.exists():
+        cfg = json.loads(m.read_text())
+        for srv in cfg.get("mcpServers", {}).values():
+            srv["headers"] = {"Authorization": f"Bearer {tokens[company]}"}
+        m.write_text(json.dumps(cfg, indent=2) + "\n")
+print("  evidence tokens: each company's .mcp.json carries its own (switch/state/evidence-tokens.json)")
+PY
+
+# Pin every agent's controls (guards, settings, MCP config, playbook, room ids) and make them immutable. The guards
+# check these pins on every call and fail closed on a mismatch; preflight checks them between runs.
+python3 - "$ROOT" "$WS" <<'PY'
+import hashlib, json, sys
+from pathlib import Path
+root, ws = Path(sys.argv[1]), Path(sys.argv[2])
+CONTROLS = ("hooks/path_guard.py", "hooks/disclosure_guard.py", "hooks/disclosure_canon.py", "hooks/ed25519_verify.py", "hooks/ledger_chain.py", ".claude/settings.json", ".mcp.json", "CLAUDE.md", "AGENTS.md",
+            ".disclosures/rooms.json", ".disclosures/customer-names.json", "bin/test", "bin/sandbox-check")
+pins = {}
+for agent in ("payco", "shopco", "mediator"):
+    d = (ws / agent).resolve()
+    files = {rel: hashlib.sha256((d / rel).read_bytes()).hexdigest() for rel in CONTROLS if (d / rel).is_file()}
+    pins[str(d)] = {"files": files}
+out = root / "switch" / "state" / "pins.json"
+out.parent.mkdir(parents=True, exist_ok=True)
+out.write_text(json.dumps(pins, indent=1))
+print(f"  pinned {sum(len(v['files']) for v in pins.values())} control files -> switch/state/pins.json")
+PY
+if command -v chflags >/dev/null; then
+  for agent in payco shopco mediator; do
+    for rel in hooks/path_guard.py hooks/disclosure_guard.py hooks/disclosure_canon.py hooks/ed25519_verify.py hooks/ledger_chain.py .claude/settings.json .mcp.json CLAUDE.md AGENTS.md .disclosures/rooms.json .disclosures/customer-names.json bin/test bin/sandbox-check; do
+      [ -f "$WS/$agent/$rel" ] && chflags uchg "$WS/$agent/$rel"
+    done
+  done
+  echo "  made the control files immutable (chflags uchg)"
+fi
 
 echo "setup done. Agent working dirs:"
 echo "  payco-agent  -> $WS/payco"
