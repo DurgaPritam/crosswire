@@ -16,7 +16,7 @@ jobs:
       - uses: actions/setup-python@v5
         with: {python-version: "3.12"}
       - uses: actions/setup-node@v4
-        with: {node-version: "20"}
+        with: {node-version: "22"}   # ShopCo's app requires Node 22+ (package.json engines)
       - uses: extractions/setup-just@v2
 
       - name: just doctor 0 1
