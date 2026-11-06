@@ -220,10 +220,9 @@ function SwitchTag({ children }: { children: ReactNode }) {
 }
 /** The Switch feature behind a message, by sender. Accurate for every recorded run (no feature a run didn't use). */
 const SWITCH_BY_WHO: Record<string, string> = {
-  priya: 'a person in Mattermost, bridged into the Switch room', sam: 'a person in Mattermost, bridged into the Switch room',
-  'payco-agent': 'agent session (Switch Console) · role provider-responder in the shared room',
-  'shopco-agent': 'agent session (Switch Console) · role consumer-responder in the shared room',
-  mediator: 'agent session · holds the exclusive role incident-commander',
+  priya: 'Mattermost bridge · a person in the room', sam: 'Mattermost bridge · a person in the room',
+  'payco-agent': 'agent · role provider-responder', 'shopco-agent': 'agent · role consumer-responder',
+  mediator: 'agent · role incident-commander (exclusive)',
   notary: 'protocol agent (no AI) · role notary',
 };
 function SysRow({ children }: { children: ReactNode }) {
@@ -438,7 +437,7 @@ function LiveItem({ m }: { m: Msg }) {
     return <DraftCard id={m.dId ?? ''} idRole={role} title={m.title ?? 'Disclosure draft'} by={`by ${role === 'payco' ? 'payco-agent' : 'shopco-agent'} · ${m.time}`} rows={m.rows ?? []}
       approvedBy={m.status === 'approved' ? m.approvedBy : undefined} awaiting={m.status === 'awaiting' ? human : undefined} seam={m.status === 'approved'}
       footer={<div className="flex min-w-0 flex-col gap-1"><Meta className="inline-flex items-center gap-1">{m.status === 'approved' ? <>Approved · crossing to the shared room <Icon name="arrow" size={13} /></> : m.status === 'denied' ? 'Denied · stays private' : `${human} decides in this room`}</Meta>
-        <SwitchTag>{`private room #${role}-internal · only ${role === 'payco' ? 'PayCo' : 'ShopCo'} and its agent are members`}</SwitchTag></div>} />;
+        <SwitchTag>{`private room #${role}-internal · ${role === 'payco' ? 'PayCo' : 'ShopCo'} only`}</SwitchTag></div>} />;
   }
   if (m.kind === 'disclosure') {
     const role = COMPANY_ROLE(m.dId);
@@ -451,19 +450,19 @@ function LiveItem({ m }: { m: Msg }) {
         </div>
         <DraftRows rows={[{ icon: 'hash', label: `${(m.dtype ?? 'evidence').replace(/_/g, ' ')}${m.fields ? ` · ${m.fields} field paths, lengths, hashes` : ''}`, level: m.fields ? 'fingerprint' : 'plain', value: m.fields ? undefined : 'counts only' }]} />
         <div className="flex flex-col px-4 pb-3.5 pt-3"><Meta>{m.bytes ? <><span className="text-fg">{m.bytes} B</span> fingerprinted · </> : null}0 B customer data · 0 payload values</Meta>
-          <SwitchTag>role-targeted message to the incident-commander · shared room #payco-shopco-shared</SwitchTag></div>
+          <SwitchTag>role-targeted message → incident-commander</SwitchTag></div>
       </motion.div>
     );
   }
   if (m.kind === 'refusal') {
     return (<>
-      <Message who={who ?? 'shopco'} to={m.to} time={m.time} state="refused" tag="addressing policy · enforced by the Switch server, not the agent's prompt" extra={<div className="mt-2.5 flex flex-wrap gap-2"><Chip role="blocked" icon="lock">Refused by Switch</Chip><Chip role="blocked" mono>not_permitted</Chip></div>}>{m.text}</Message>
+      <Message who={who ?? 'shopco'} to={m.to} time={m.time} state="refused" tag="addressing policy · enforced by the server" extra={<div className="mt-2.5 flex flex-wrap gap-2"><Chip role="blocked" icon="lock">Refused by Switch</Chip><Chip role="blocked" mono>not_permitted</Chip></div>}>{m.text}</Message>
       <SysRow><Icon name="blocked" className="text-blocked-ink" /><span className="truncate">Switch · {m.to} can't instruct {m.who} directly</span></SysRow>
     </>);
   }
   if (m.kind === 'compare') {
     return (
-      <Message who="notary" time={m.time} tag="protocol agent (no AI) · role notary · compares the two approved fingerprints">
+      <Message who="notary" time={m.time} tag="protocol agent (no AI) · role notary">
         <CompareLine text={m.text} field={m.title ?? ''} n={m.bytes ?? 0} />
       </Message>
     );
@@ -604,7 +603,7 @@ function Record({ S, D }: { S: SceneState; D?: StoryData | null }) {
       <div>
         <div className="flex items-center justify-between"><span className="font-mono text-[12px] text-fg2">{D?.incident.id ?? 'INC-0001'}</span>{pill}</div>
         <div className="mt-2 text-[20px] font-[550] leading-7 tracking-[-0.015em]">Webhook signature mismatch</div>
-        {D && <SwitchTag>room document in the shared room · only the mediator, which created it, can edit it</SwitchTag>}
+        {D && <SwitchTag>room document · only the mediator can edit it</SwitchTag>}
         {!S.isPresent && (
           <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3">
             {meta.map(([k, v]) => (<div key={k} className="flex flex-col gap-0.5"><dt className="flex"><Label>{k}</Label></dt><dd className={cx('text-ui font-medium tabular-nums', k === 'Elapsed' && 'font-mono')}>{v}</dd></div>))}
@@ -756,7 +755,7 @@ function ByteDiff({ L, D, onClose }: { L: Layout; D?: StoryData | null; onClose?
         style={{ ...abs(b.x, b.y, b.w, b.h), ['--blur' as string]: '28px', ['--sat' as string]: 1.4 }} {...rm(M.byteDiff.panel)} exit={{ opacity: 0, y: 8 }}>
         <div className="flex h-[104px] items-center gap-4 px-8">
           <Avatar size={44} role="neutral" agent glyph="seal" />
-          <div className="min-w-0 flex-1"><div className="whitespace-nowrap text-[24px] font-semibold leading-8 tracking-[-0.02em]">Notary · byte comparison · <span className="font-mono text-[22px] font-medium">{event}</span></div><Meta className="mt-0.5 block">{C ? `${C.pay} × ${C.shop} · salted with ${C.salt} · ${clock(C.t)}` : 'D-PAY-1 × D-SHOP-1 · salted with inc_0001:7e2c…a91f · 10:45:14'}</Meta></div>
+          <div className="min-w-0 flex-1"><div className="whitespace-nowrap text-[24px] font-semibold leading-8 tracking-[-0.02em]">Notary · byte comparison · <span className="font-mono text-[22px] font-medium">{event}</span></div><Meta className="mt-0.5 block">{C ? `${C.pay} × ${C.shop} · salted with ${C.salt} · ${clock(C.t)}` : 'D-PAY-1 × D-SHOP-1 · salted with inc_0001:7e2c…a91f · 10:45:14'}</Meta>{C && <SwitchTag>protocol agent (no AI) · role notary · compares two approved disclosures</SwitchTag>}</div>
           <Chip icon="redact">values hidden</Chip>
         </div>
         <Seam />
