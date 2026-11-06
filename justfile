@@ -1,4 +1,4 @@
-# Crosswire commands. Recipes not built yet print which phase builds them.
+# Crosswire commands. `just doctor` checks what each level needs; `just --list` shows every recipe.
 set dotenv-load := true
 export PATH := env_var('PATH') + ":" + env_var('HOME') + "/.docker/bin"
 
@@ -17,7 +17,7 @@ setup:
 reset:
     ./scripts/reset.sh
 
-# Start all services (built in Phases 2, 4, 5)
+# Start all services (company APIs, evidence servers, approver)
 up:
     @[ -d workspace/payco ] || ./scripts/setup.sh
     docker compose up -d --build --wait
@@ -43,7 +43,7 @@ verify-fixed:
 test:
     ./scripts/test-all.sh
 
-# Run the notary protocol agent (register once first: just notary-register, after Phase 7 creates `host`)
+# Run the notary protocol agent on the host (`just switch-setup` registers it and runs it in Docker)
 notary:
     ./scripts/ensure-venv.sh
     cd neutral/notary && ../../.venv/bin/python -m notary
@@ -85,8 +85,9 @@ console-replay:
     cd console/server && ../../.venv/bin/python -m crosswire_console --replay
 
 # Health checklist for the whole system
-doctor:
-    @echo "not built yet: Phase 10"
+# Are the prerequisites in place? Level 0 replay · 1 bug + fix (Docker) · 2 live with Switch. Read-only.
+doctor *levels:
+    python3 scripts/doctor.py {{levels}}
 
 # Level 2: from a running Switch Console to Crosswire's agents, rooms, roles, policies and claims
 switch-setup *args:
