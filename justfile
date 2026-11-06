@@ -87,3 +87,8 @@ console-replay:
 # Health checklist for the whole system
 doctor:
     @echo "not built yet: Phase 10"
+
+# Level 2: from a running Switch Console to Crosswire's agents, rooms, roles, policies and claims
+switch-setup *args:
+    ./scripts/ensure-venv.sh
+    .venv/bin/python scripts/switch_setup.py {{args}}
