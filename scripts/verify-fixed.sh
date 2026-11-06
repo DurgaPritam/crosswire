@@ -37,7 +37,7 @@ echo "--- patched unit tests"
 deps=""
 for d in "$ROOT/companies/shopco/app/node_modules" "$ROOT/workspace/shopco/app/node_modules"; do [ -d "$d" ] && { deps="$d"; break; }; done
 if [ -n "$deps" ]; then ln -s "$deps" "$TMP/shopco/app/node_modules"; else (cd "$TMP/shopco/app" && npm ci --silent >/dev/null); fi
-(cd "$TMP/shopco/app" && npm test --silent 2>&1 | grep -E '^ℹ (pass|fail)')
+(cd "$TMP/shopco/app" && npm test --silent 2>&1 | grep -E '^(ℹ|#) (pass|fail)')   # spec (Node 23+) or TAP (Node 22, no TTY)
 
 echo "--- starting patched services ($PROJECT on :$PAYCO_API_PORT/:$SHOPCO_APP_PORT)"
 PAYCO_SRC="$TMP/payco" SHOPCO_SRC="$TMP/shopco" \
