@@ -1,17 +1,20 @@
 """The approver: the only thing that can turn a human's "approve D-…" into an approval the guard accepts.
 
-Runs in Docker. Holds an Ed25519 signing key in a Docker volume (never on the host filesystem) and the canonical pins
-of every agent's controls (computed at start from a read-only mount of the workspaces). It watches the two private
-Mattermost channels and accepts approvals only from Priya's (PayCo) and Sam's (ShopCo) Mattermost user ids. For each
-one it finds the latest draft that company's agent posted in that channel and signs
+A Switch protocol agent (like the notary), running in Docker. It holds an Ed25519 signing key in a Docker volume
+(never on the host filesystem) and the canonical pins of every agent's controls (computed at start from a read-only
+mount of the workspaces). It reads the rooms through its own Switch connection (switch_watch.py), never through the
+chat platform, and signs an approval only when Switch delivers it as ADDRESSED to the approver: the approver's
+addressing policy admits only Priya in #payco-internal and Sam in #shopco-internal, and Switch evaluates that policy
+on the server against the platform accounts they claimed. For each approval it takes the latest draft that company's
+agent posted in that room and signs
 
-    {d_id, incident, sha256 of the draft's canonical evidence, approver, approver_user_id, draft/approval post ids, time}
+    {d_id, incident, salt, sha256 of the draft's canonical evidence, approver, sender, draft/approval message ids, time}
 
 It refuses to sign while any workspace control differs from its pins, and binds every approval to the CURRENT incident:
-it also watches the shared room for the notary's `Salt for INC-nnnn: ...` replies, and signs (and later serves) a record
-only while its incident is the latest one the notary issued a salt for and its salt is the one the notary issued for it.
-An approval from an earlier incident, or a draft with a made-up or rotated-out salt, is never accepted. The disclosure guard fetches the record at
-posting time (GET /approval/<d_id>), verifies the signature and compares the evidence hash with what is being posted.
+it watches the shared room for the notary's `Salt for INC-nnnn: ...` replies, and signs (and later serves) a record
+only while its incident is the latest one the notary issued a salt for and its salt is the one the notary issued for
+it. The disclosure guard fetches the record at posting time (GET /approval/<d_id>), verifies the signature and compares
+the evidence hash with what is being posted.
 
 Every signed decision is also appended to approvals.jsonl in the volume, hash-chained (ledger_chain.py) with the
 chain link inside the signature, and served read-only at GET /ledger for `just verify-ledger`.
@@ -27,9 +30,6 @@ import re
 import sys
 import threading
 import time
-import urllib.error
-import urllib.parse
-import urllib.request
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -78,30 +78,6 @@ def workspace_hashes() -> dict[str, dict[str, str]]:
     return out
 
 
-# ------------------------------------------------------------------ Mattermost (read-only)
-
-class MM:
-    def __init__(self, url: str, user: str, password: str) -> None:
-        u = urllib.parse.urlparse(url)
-        host = u.hostname if u.hostname not in ("localhost", "127.0.0.1") else "host.docker.internal"
-        self.base = f"{u.scheme}://{host}:{u.port}/api/v4"
-        self.token = ""
-        r = self._req("POST", "/users/login", {"login_id": user, "password": password}, raw=True)
-        self.token = r.headers.get("Token", "")
-
-    def _req(self, method: str, path: str, body=None, raw: bool = False):
-        req = urllib.request.Request(self.base + path, data=json.dumps(body).encode() if body is not None else None, method=method)
-        req.add_header("Content-Type", "application/json")
-        req.add_header("X-Requested-With", "XMLHttpRequest")
-        if self.token:
-            req.add_header("Authorization", f"Bearer {self.token}")
-        resp = urllib.request.urlopen(req, timeout=20)
-        return resp if raw else json.loads(resp.read() or b"null")
-
-    def get(self, path: str):
-        return self._req("GET", path)
-
-
 # ------------------------------------------------------------------ the approver
 
 class Approver:
@@ -113,7 +89,8 @@ class Approver:
         self.refusals: list[dict] = []
         self.current: str | None = None          # the incident the notary most recently issued a salt for
         self.issued: dict[str, str] = {}         # incident -> the salt the notary issued for it (latest)
-        self.watching = False                    # the Mattermost watcher is logged in and polling
+        self.watching = False                    # the Switch connection is open (connection_state received)
+        self.rooms: set[str] = set()             # Crosswire rooms the connection covers, by name
         self.lock = threading.Lock()
         log(f"pinned {sum(len(v) for v in self.pins.values())} control files across {len(self.pins)} workspaces")
 
@@ -152,23 +129,24 @@ class Approver:
         payload = json.dumps(record, sort_keys=True, separators=(",", ":")).encode()
         return {**record, "sig": self.key.sign(payload).hex()}
 
-    def on_approval(self, channel: str, decision: str, d_id: str, approval: dict, draft: dict | None, user: str) -> None:
+    def on_approval(self, channel: str, decision: str, d_id: str, approval: dict, draft: dict | None, user: str) -> str:
+        """Sign (or refuse) one approval. Returns the outcome in one line, for the receipt the approver posts."""
         bad = self.integrity_problem()
         if bad:
             self.refusals.append({"d_id": d_id, "reason": bad, "at": approval["create_at"]})
             log(f"refused to sign {d_id}: {bad}")
-            return
+            return f"not signed: {bad}"
         if draft is None:
             self.refusals.append({"d_id": d_id, "reason": "no draft of that id in the private room", "at": approval["create_at"]})
             log(f"refused to sign {d_id}: no draft found")
-            return
+            return f"not signed: no draft {d_id} from the company's agent in this room"
         blk = canon.block(draft["message"], d_id)
         salt = canon.canonical(blk).get("salt") if blk else None
         stale = self.binding_problem(canon.incident_of(blk) if blk else None, salt)
         if stale:
             self.refusals.append({"d_id": d_id, "reason": stale, "at": approval["create_at"]})
             log(f"refused to sign {d_id}: {stale}")
-            return
+            return f"not signed: {stale}"
         record = {"v": 1, "d_id": d_id, "status": "approved" if decision == "approve" else "denied",
                   "incident": canon.incident_of(blk) if blk else None, "salt": salt, "sha256": canon.digest(blk) if blk else None,
                   "approver": user, "approver_user_id": approval["user_id"], "draft_post_id": draft["id"],
@@ -180,59 +158,8 @@ class Approver:
         with self.lock:
             self.records[d_id] = signed
         log(f"{record['status']} {d_id} for {record['incident']} by {user} (evidence {str(record['sha256'])[:12]}…)")
-
-
-def watch(ap: Approver, mm: MM) -> None:
-    team = mm.get("/users/me/teams")[0]["id"]
-    users = {n: mm.get(f"/users/username/{n}")["id"] for n in ("priya", "sam", "payco-agent", "shopco-agent", "notary")}
-    chans = {name: mm.get(f"/teams/{team}/channels/name/{name}")["id"] for name in COMPANY}
-    shared = mm.get(f"/teams/{team}/channels/name/{SHARED}")["id"]
-    since = {c: int(time.time() * 1000) for c in chans.values()}
-    seen: set[str] = set()
-
-    def salts(posts: list[dict]) -> None:   # only the notary's own account can name the current incident
-        for p in sorted(posts, key=lambda q: q["create_at"]):
-            m = SALT_POST_RE.search(p.get("message", ""))
-            if m and p["user_id"] == users["notary"]:
-                ap.on_salt(m.group(1).upper(), m.group(2))
-
-    hist = mm.get(f"/channels/{shared}/posts?per_page=200") or {}     # recover the current incident after a restart
-    salts(list((hist.get("posts") or {}).values()))
-    shared_since = max([p["create_at"] for p in (hist.get("posts") or {}).values()] or [int(time.time() * 1000)])
-    log(f"watching {', '.join(chans)} for approvals from priya and sam; {SHARED} for the notary's incident salts")
-    ap.watching = True
-    while True:
-        try:
-            data = mm.get(f"/channels/{shared}/posts?since={shared_since - 1}&collapsedThreads=false") or {}
-            posts = list((data.get("posts") or {}).values())
-            salts(posts)
-            shared_since = max([shared_since] + [p["create_at"] for p in posts])
-        except (urllib.error.URLError, OSError) as exc:
-            log(f"mattermost: {exc}")
-        for name, cid in chans.items():
-            human, agent, prefix = COMPANY[name]
-            try:
-                data = mm.get(f"/channels/{cid}/posts?since={since[cid] - 1}&collapsedThreads=false") or {}
-            except (urllib.error.URLError, OSError) as exc:
-                log(f"mattermost: {exc}")
-                continue
-            posts = sorted((data.get("posts") or {}).values(), key=lambda p: p["create_at"])
-            for p in posts:
-                since[cid] = max(since[cid], p["create_at"])
-                if p["id"] in seen or p.get("type", "").startswith("system_"):
-                    continue
-                seen.add(p["id"])
-                m = APPROVE_RE.search(p.get("message", ""))
-                if not m or p["user_id"] != users[human] or not m.group(2).upper().startswith(prefix):
-                    continue           # only Priya (PayCo) and Sam (ShopCo), each for their own company's drafts
-                d_id = m.group(2).upper()
-                hist = mm.get(f"/channels/{cid}/posts?per_page=200") or {}
-                drafts = [q for q in (hist.get("posts") or {}).values()
-                          if q["user_id"] == users[agent] and q["create_at"] < p["create_at"]
-                          and re.match(rf"\s*(?:@[\w.-]+[\s,:]*)*DRAFT\s+{re.escape(d_id)}\b", q.get("message", "")) and canon.block(q["message"], d_id)]
-                draft = max(drafts, key=lambda q: q["create_at"]) if drafts else None
-                ap.on_approval(name, m.group(1).lower(), d_id, p, draft, human)
-        time.sleep(2)
+        return (f"signed: {d_id} {record['status']} by {user} for {record['incident']} (evidence "
+                f"{str(record['sha256'])[:12]}…)")
 
 
 def serve(ap: Approver) -> None:
@@ -250,7 +177,8 @@ def serve(ap: Approver) -> None:
             if path == "/health":
                 self._json(200, {"ok": True, "pins": sum(len(v) for v in ap.pins.values()), "approvals": len(ap.records),
                                  "integrity": ap.integrity_problem() or "ok", "refusals": len(ap.refusals),
-                                 "incident": ap.current, "watching": ap.watching})
+                                 "incident": ap.current, "watching": ap.watching,
+                                 "rooms": sorted(ap.rooms)})
             elif path == "/pubkey":
                 self._json(200, {"ed25519": ap.pub.hex()})
             elif path == "/pins":
@@ -272,24 +200,10 @@ def serve(ap: Approver) -> None:
     ThreadingHTTPServer(("0.0.0.0", PORT), H).serve_forever()
 
 
-def watch_forever(ap: Approver) -> None:
-    """Log in and watch; on any failure (Mattermost down, no credentials yet) wait and retry. Never signs meanwhile."""
-    url, user, password = (os.environ.get(k, "") for k in ("MM_URL", "MM_USER", "MM_PASSWORD"))
-    if not (url and user and password):
-        log("no Mattermost credentials (MM_URL/MM_USER/MM_PASSWORD): serving, but not watching, so nothing gets signed")
-        return
-    while True:
-        try:
-            watch(ap, MM(url, user, password))
-        except Exception as exc:  # noqa: BLE001  keep serving /health and /pubkey; approvals wait for the watcher
-            ap.watching = False
-            log(f"watcher stopped ({type(exc).__name__}); retrying in 10s")
-            time.sleep(10)
-
-
 def main() -> None:
+    import switch_watch  # noqa: PLC0415  (needs httpx: imported only where the service runs)
     ap = Approver()
-    threading.Thread(target=watch_forever, args=(ap,), daemon=True).start()
+    threading.Thread(target=switch_watch.run_forever, args=(ap,), daemon=True).start()
     log(f"listening on :{PORT}")
     serve(ap)
 

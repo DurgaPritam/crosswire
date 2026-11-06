@@ -3,7 +3,7 @@
 
     python3 scripts/phase7.py plan                 # what would happen (no admin login needed)
     python3 scripts/phase7.py all                  # every step below, in order (idempotent)
-    python3 scripts/phase7.py <step> [<step> ...]  # users notary template rooms claims policies roles smoke
+    python3 scripts/phase7.py <step> [<step> ...]  # users notary template rooms claims policies approver roles smoke
 
 Needs SWITCH_ADMIN_EMAIL / SWITCH_ADMIN_PASSWORD (and the MM_* logins) in the gitignored .env.
 Ownership model (UPDATE-003): the admin owns all four agents; addressing rules name Priya and Sam.
@@ -38,7 +38,7 @@ ROOM_NAMES = {"payco-internal": "payco-internal", "shopco-internal": "shopco-int
               "payco-shopco-shared": "payco-shopco-shared"}
 PEOPLE = {"priya": "Priya (PayCo)", "sam": "Sam (ShopCo)"}
 AGENT_NAMES = ["payco-agent", "shopco-agent", "mediator", "notary"]
-STEPS = ["users", "notary", "template", "rooms", "claims", "policies", "roles", "smoke", "instructions", "observer"]
+STEPS = ["users", "notary", "template", "rooms", "claims", "policies", "approver", "roles", "smoke", "instructions", "observer"]
 
 
 def say(msg: str) -> None:
@@ -377,6 +377,51 @@ def _named_policy(name: str, back: Any, st: dict[str, Any], agents: dict[str, st
             "rules": [{"rooms": nm(r["rooms"]), "room_groups": r["room_groups"], "users": nm(r["users"]),
                        "agents": nm(r["agents"]), "owner": r["owner"], "owner_agents": r["owner_agents"],
                        "platform": r["platform"]} for r in pol.get("rules", [])]}
+
+
+APPROVER_CREDS = ROOT / "switch" / "state" / "approver" / "credentials.json"
+
+
+def step_approver(gw: Gateway, e: dict[str, str], st: dict[str, Any]) -> None:
+    """The approver as a Switch protocol agent: register it once, put it in the three rooms, and give it an addressing
+    policy that admits only Priya in #payco-internal and Sam in #shopco-internal (their claimed platform accounts), so
+    Switch itself decides whose `@approver approve D-…` reaches it. Then (re)start its container."""
+    if not APPROVER_CREDS.exists():
+        key = gw.req("POST", "/api-keys", {"label": "crosswire approver registration"})
+        token = key.get("key")
+        if not token:
+            raise GatewayError(f"api-keys returned no key (fields: {sorted(key)})")
+        r = subprocess.run([str(ROOT / ".venv/bin/python"), "-m", "approver.register"], cwd=ROOT / "approver",
+                           env={**os.environ, "APPROVER_REGISTRATION_TOKEN": token, "SWITCH_BRIDGE_URL": e["SWITCH_BRIDGE_URL"],
+                                "PYTHONPATH": str(ROOT / "approver")}, capture_output=True, text=True)
+        say("approver register: " + (r.stdout.strip() or r.stderr.strip())[-300:])
+        if r.returncode != 0:
+            raise GatewayError("approver registration failed")
+    aid = json.loads(APPROVER_CREDS.read_text())["id"]
+    st["approver_id"] = aid
+    u, rooms = st.get("platform_accounts"), st.get("rooms")
+    if not u or not rooms:
+        raise GatewayError("run the rooms, claims and policies steps first (the approver's policy names their results)")
+    rules = [_rule([rooms["payco-internal"]], [u["priya"]], []), _rule([rooms["shopco-internal"]], [u["sam"]], [])]
+    gw.req("PUT", f"/agents/{aid}/addressing-policy", {"policy": {"rules": rules}})
+    for key, room in rooms.items():
+        if aid not in (gw.req("GET", f"/rooms/{room}").get("agent_ids") or []):
+            gw.req("POST", f"/rooms/{room}/agents", {"agent_ids": [aid]})
+        say(f"approver in #{key}")
+    back = None
+    for path in (f"/agents/{aid}/addressing-policy", f"/agents/{aid}"):
+        try:
+            back = gw.req("GET", path)
+            break
+        except GatewayError:
+            continue
+    agents = {a["name"]: a["id"] for a in items(gw.req("GET", "/agents"), "agents") if a.get("name")}
+    POLICIES.mkdir(parents=True, exist_ok=True)
+    (POLICIES / "approver.json").write_text(json.dumps(_named_policy("approver", back, st, agents), indent=1) + "\n")
+    say("policy approver: Priya in #payco-internal, Sam in #shopco-internal; read-back saved to switch/policies/approver.json")
+    r = subprocess.run(["docker", "compose", "up", "-d", "--build", "--force-recreate", "approver"], cwd=ROOT, capture_output=True,
+                       text=True, env={**os.environ, "PATH": os.environ["PATH"] + f":{Path.home()}/.docker/bin"})
+    say("approver container: " + ("running" if r.returncode == 0 else f"FAILED {r.stderr[-300:]}"))
 
 
 def _send_and_wait(mm: mmlib.Mattermost, channel: str, text: str, want: str | None, timeout: float = 180) -> list[mmlib.Post]:

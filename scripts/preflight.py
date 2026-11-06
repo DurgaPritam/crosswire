@@ -191,12 +191,14 @@ def main() -> int:
         with urllib.request.urlopen("http://127.0.0.1:7400/pins", timeout=4) as r:
             apins = json.loads(r.read())
         same = all(apins.get(a, {}) == (pins.get(str((ROOT / "workspace" / a).resolve())) or {}).get("files") for a in ("payco", "shopco", "mediator"))
-        check("approver up and watching Mattermost, its own pins match the workspaces and the host's pins.json",
-              ah.get("ok") and ah.get("integrity") == "ok" and same and ah.get("watching") is True,
-              f"integrity {ah.get('integrity')}; {'same' if same else 'DIFFERENT'} pins; watching {ah.get('watching')}; "
+        rooms_ok = set(ah.get("rooms") or []) == {SHARED, PAY_IN, SHOP_IN}
+        check("approver up as a Switch agent (connected, in all 3 rooms), its own pins match the workspaces and the host's pins.json",
+              ah.get("ok") and ah.get("integrity") == "ok" and same and ah.get("watching") is True and rooms_ok,
+              f"integrity {ah.get('integrity')}; {'same' if same else 'DIFFERENT'} pins; Switch connection "
+              f"{'open' if ah.get('watching') else 'CLOSED'}; rooms {', '.join(ah.get('rooms') or []) or 'none'}; "
               f"{ah.get('approvals')} approvals")
     except OSError as exc:
-        check("approver up and watching Mattermost, its own pins match the workspaces and the host's pins.json", False,
+        check("approver up as a Switch agent (connected, in all 3 rooms), its own pins match the workspaces and the host's pins.json", False,
               f"approver unreachable ({exc})")
 
     drift = phase7.instructions_drift(gw)

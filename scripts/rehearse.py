@@ -95,7 +95,7 @@ class Driver:
             human, agent, room = self.OWNER[d_id.rsplit("-", 1)[0]]
             if p.is_by(agent) and channel == room and d_id not in self.approved:
                 self.approved.add(d_id)
-                out.append(Action(human, room, f"@{agent} approve {d_id}", thread))
+                out.append(Action(human, room, f"@{agent} @approver approve {d_id}", thread))   # the approver signs it (Switch agent)
                 if d_id.startswith("D-SHOP") and not self.asked_direct:
                     self.asked_direct = True
                     out.append(Action("sam", SHOP_IN, DIRECT_ASK))

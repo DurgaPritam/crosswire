@@ -85,8 +85,9 @@ DRAFT_WORD_RE = re.compile(r"^\s*(?:@[\w.-]+[\s,:]*)*DRAFT\b", re.I)
 
 FIX = {
     "unsigned": "the approver has no signed approval for it (or it was denied, or the approver can't be reached). "
-                "A disclosure crosses only after the owner replies `approve D-…` to your DRAFT in your private room; "
-                "the approver records that. Wait for it, then post the approved block unchanged",
+                "A disclosure crosses only after the owner approves your DRAFT in your private room by addressing "
+                "the approver: `@approver approve D-…` (the approver replies with a receipt). Wait for that, then "
+                "post the approved block unchanged",
     "changed": "its evidence (type/event/salt/JSON) differs from the draft the owner approved. Post the approved "
                "block exactly as drafted, or post a new DRAFT and ask for approval again",
     "prose": "a disclosure post may contain only the approved evidence block: the [D-… · approved by @…] header, "

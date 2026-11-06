@@ -56,11 +56,14 @@ services:
   approver:
     # Signs human approvals; the disclosure guard asks it at posting time. Key in the approver-data volume only.
     build: {context: ., dockerfile: approver/Dockerfile}
+    # A Switch protocol agent: it reads the rooms through its own Switch connection (credentials from
+    # `phase7.py approver` in switch/state/approver/, mounted read-only), never through the chat platform.
     environment:
-      MM_URL: ${MM_URL:-http://host.docker.internal:50676}
-      MM_USER: ${MM_USER:-}
-      MM_PASSWORD: ${MM_PASSWORD:-}
-    volumes: ["approver-data:/data", "./workspace:/ws:ro"]
+      SWITCH_BRIDGE_URL: ${NOTARY_BRIDGE_URL_FROM_DOCKER:-http://host.docker.internal:50675}
+    volumes:
+      - "approver-data:/data"
+      - "./workspace:/ws:ro"
+      - "./switch/state/approver:/run/approver:ro"   # credentials.json from `phase7.py approver`
     ports: ["127.0.0.1:7400:7400"]
     restart: unless-stopped
 
