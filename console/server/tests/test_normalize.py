@@ -84,6 +84,19 @@ def test_notary_compare_is_parsed_without_values() -> None:
     assert cmp_["salt"] == "inc-0001-…ab39"
 
 
+def test_mediator_full_text_is_scrubbed_like_the_display_text() -> None:
+    long = "**Proposed root cause:** " + "PayCo signs escaped bytes; ShopCo re-serializes. " * 12 + "Chloé, ops@shopco.example, `t` + `.`"
+    (m,) = [e for e in from_message(raw("payco-shopco-shared", "mediator", long), "INC-0001") if e["kind"] == "message"]
+    assert m["text"].endswith("…") and len(m["text"]) <= 360
+    assert len(m["full"]) > 360 and not m["full"].endswith("…")
+    assert "Chloé" not in m["full"] and "ops@shopco.example" not in m["full"] and "[email withheld]" in m["full"]
+    for who, room in (("payco-agent", "payco-shopco-shared"), ("mediator", "payco-internal"), ("sam", "payco-shopco-shared")):
+        (e,) = [x for x in from_message(raw(room, who, long), "INC-0001") if x["kind"] == "message"]
+        assert "full" not in e, (who, room)          # only the mediator's shared-room prose gets the longer copy
+    (short,) = [e for e in from_message(raw("payco-shopco-shared", "mediator", "short note"), "INC-0001") if e["kind"] == "message"]
+    assert "full" not in short
+
+
 def test_privacy_boundary() -> None:
     ev = normalize(RUN + [raw("payco-shopco-shared", "sam", "it's Chloé Martin, jose@example.com")])
     dumped = json.dumps(ev, ensure_ascii=False)

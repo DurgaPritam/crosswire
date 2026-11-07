@@ -9,7 +9,7 @@ export interface CompareRow { path: string; pay: number | null; shop: number | n
 
 interface Base { id: string; t: number; seq?: number; lane: Lane | null; who: Who }
 export type CwEvent = Base & (
-  | { kind: 'message'; text: string; thread?: boolean }
+  | { kind: 'message'; text: string; thread?: boolean; full?: string }   // full: the mediator's longer shared-room prose (postmortem)
   | { kind: 'incident_opened'; incident: string }
   | { kind: 'salt'; incident: string; salt: string }
   | { kind: 'draft'; d_id: string; company: 'payco' | 'shopco'; dtype: string; title: string; rows: DraftRow[]; status: 'awaiting' }
@@ -30,7 +30,7 @@ export type MsgKind = 'message' | 'draft' | 'disclosure' | 'refusal' | 'compare'
 export interface Msg {
   id: string; t: number; time: string; who: Who; kind: MsgKind; text: string;
   dId?: string; title?: string; rows?: DraftRow[]; status?: 'awaiting' | 'approved' | 'denied'; approvedBy?: string;
-  to?: string; fields?: number; bytes?: number; dtype?: string; fresh?: boolean;
+  to?: string; fields?: number; bytes?: number; dtype?: string; fresh?: boolean; full?: string;
 }
 export type IncidentStatus = 'none' | 'connecting' | 'investigating' | 'root-cause' | 'resolved';
 export interface LedgerEntry { id: string; type: string; co: string; by: string; time: string; role: Role; guard: 'passed' | 'refused' | 'blocked' }
@@ -56,6 +56,7 @@ export interface StoryData {
   crossing: { dId: string; company: 'payco' | 'shopco'; bytes: number } | null;
   finale: { rootCauseMin: number | null; disclosures: number; approvedAll: boolean; pay: number; shop: number; refusals: number;
             refusalAt: string | null; rootCauseAt: string | null; fixes: { payco: boolean; shopco: boolean };
-            linesShared: number | null } | null;   // measured by the grader (null: not measured for this recording)
+            linesShared: number | null;   // measured by the grader (null: not measured for this recording)
+            resolvedAt: string | null; totalMin: number | null; guardBlocks: number } | null;
   counts: { events: number };
 }

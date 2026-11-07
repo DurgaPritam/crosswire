@@ -189,7 +189,12 @@ def from_message(raw: dict[str, Any], incident: str | None) -> list[dict[str, An
         out.append({**base, "kind": "status_change", "status": "root-cause"})
     if w == "mediator" and RESOLVED_RE.search(body):
         out.append({**base, "kind": "status_change", "status": "resolved"})
-    out.insert(0, {**base, "kind": "message", "text": prose(body), "thread": bool(raw.get("thread_id"))})
+    msg = {**base, "kind": "message", "text": prose(body), "thread": bool(raw.get("thread_id"))}
+    if base["lane"] == "shared" and base["who"] == "mediator":
+        full = prose(body, limit=2000)   # same scrubbing, longer: the postmortem quotes the mediator's root cause and contract
+        if full != msg["text"]:
+            msg["full"] = full
+    out.insert(0, msg)
     return out
 
 

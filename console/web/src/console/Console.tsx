@@ -4,6 +4,7 @@ import { ease, list, pick, reduced, rise, scenes as M, seamTravel, spring } from
 import { computeLayout, type Layout } from './layout';
 import { Avatar, AvatarStack, Badge, Button, Chip, Icon, Kbd, Label, Mark, Meta, Pill, Seam, Segmented, Skeleton, Typing, type IconName } from './primitives';
 import { dataState, fmt, sceneState, SPAN, type SceneState } from './scenes';
+import { PostmortemDialog } from './Postmortem';
 import { clock } from '../data/reduce';
 import type { ReplayControls } from '../data/source';
 import type { Msg, StoryData } from '../data/types';
@@ -25,6 +26,7 @@ export function Console({ scene, theme = 'dark', breakpoint = 'w1920', grain = 0
   useEffect(() => { if (!cmpId) return; setDiffOpen(true); const id = setTimeout(() => setDiffOpen(false), 9000); return () => clearTimeout(id); }, [cmpId]);
   const [panelOpen, setPanelOpen] = useState<PanelTab | null>(null);   // rail layouts: the panel expanded over the ShopCo lane
   const [searchOpen, setSearchOpen] = useState(false);
+  const [pmOpen, setPmOpen] = useState(false);
   useEffect(() => { const h = () => setSearchOpen(true); document.addEventListener('cw:search', h); return () => document.removeEventListener('cw:search', h); }, []);
   const S = D ? dataState(D, scene, viewAs, L.tablet, diffOpen) : sceneState(scene, L.tablet);
   useShortcuts(scene, onSceneChange, () => { if (D) setDiffOpen(false); setPanelOpen(null); });
@@ -33,7 +35,7 @@ export function Console({ scene, theme = 'dark', breakpoint = 'w1920', grain = 0
       style={{ width: L.W, height: L.H, ['--glowk' as string]: seamGlow, fontFeatureSettings: "'cv11','ss01'" }}>
       <Ambient L={L} />
       <Grain opacity={grain} />
-      <TopBar L={L} S={S} theme={theme} D={D} controls={controls} onViewAs={setViewAs} onRun={() => setConfirm(true)} onSearch={() => setSearchOpen(true)} />
+      <TopBar L={L} S={S} theme={theme} D={D} controls={controls} onViewAs={setViewAs} onRun={() => setConfirm(true)} onSearch={() => setSearchOpen(true)} onPostmortem={D?.finale ? () => setPmOpen(true) : undefined} />
       {L.tablet && <LaneTabs shared={D ? sharedPeople(S, D).length : 6} />}
       {!S.isFinale && (
         <>
@@ -49,8 +51,9 @@ export function Console({ scene, theme = 'dark', breakpoint = 'w1920', grain = 0
           <AnimatePresence>{S.isByteDiff && <ByteDiff L={L} D={D} onClose={() => setDiffOpen(false)} />}</AnimatePresence>
         </>
       )}
-      {S.isFinale && <Finale L={L} theme={theme} D={D} />}
+      {S.isFinale && <Finale L={L} theme={theme} D={D} onPostmortem={D?.finale ? () => setPmOpen(true) : undefined} />}
       <Timeline L={L} S={S} D={D} replay={replay} />
+      <AnimatePresence>{pmOpen && D?.finale && <PostmortemDialog D={D} onClose={() => setPmOpen(false)} />}</AnimatePresence>
       <AnimatePresence>{searchOpen && <SearchPalette S={S} D={D} replay={replay} onClose={() => setSearchOpen(false)} />}</AnimatePresence>
       <AnimatePresence>{confirm && <RunDialog onCancel={() => setConfirm(false)} onRun={() => { setConfirm(false); controls?.onRunLive?.(); }} />}</AnimatePresence>
     </div>
@@ -96,7 +99,7 @@ function Grain({ opacity }: { opacity: number }) {
 }
 
 /* ---------- Top bar: 64 h · glass-bar blur 20 · px 24 · gap 16 ---------- */
-function TopBar({ L, S, theme, D, controls, onViewAs, onRun, onSearch }: { L: Layout; S: SceneState; theme: 'dark' | 'light'; D?: StoryData | null; controls?: ConsoleProps['controls']; onViewAs?: (v: ViewAs) => void; onRun?: () => void; onSearch?: () => void }) {
+function TopBar({ L, S, theme, D, controls, onViewAs, onRun, onSearch, onPostmortem }: { L: Layout; S: SceneState; theme: 'dark' | 'light'; D?: StoryData | null; controls?: ConsoleProps['controls']; onViewAs?: (v: ViewAs) => void; onRun?: () => void; onSearch?: () => void; onPostmortem?: () => void }) {
   const inc = D?.incident.id ?? 'INC-0001';
   return (
     <header className={cx('cw-glass absolute z-[9] flex items-center gap-4 bg-glass-bar px-6 shadow-[inset_0_-1px_0_var(--cw-line)]', S.isPresent && 'rounded-xl shadow-e2')} style={abs(L.insX, L.barT, L.barW, 64)}>
@@ -141,6 +144,7 @@ function TopBar({ L, S, theme, D, controls, onViewAs, onRun, onSearch }: { L: La
             { value: 'live', label: <><span className="role-approved cw-dot" />Live</> },
             { value: 'replay', label: <><Icon name="replay" size={14} />Replay</> },
           ]} />
+          {onPostmortem && <Button variant="primary" icon="record" onClick={onPostmortem}>Postmortem</Button>}
           <a href="?view=security" aria-label="Try to break it" title="Try to break it: the red-team results and a guard sandbox"
             className={cx('cw-focus inline-flex h-9 flex-none items-center gap-2 whitespace-nowrap rounded-md text-[12.5px] font-[550] text-fg2 shadow-[inset_0_1px_0_var(--cw-hi2),0_0_0_1px_var(--cw-line2)] hover:bg-neutral-tint hover:text-fg', L.full ? 'px-3' : 'w-9 justify-center')}>
             <Icon name="shield" size={15} />{L.full && 'Try to break it'}
@@ -824,7 +828,7 @@ function ByteCell({ n, hash }: { n: number; hash: string }) {
 }
 
 /* ---------- E · Finale ---------- */
-function Finale({ L, theme, D }: { L: Layout; theme: 'dark' | 'light'; D?: StoryData | null }) {
+function Finale({ L, theme, D, onPostmortem }: { L: Layout; theme: 'dark' | 'light'; D?: StoryData | null; onPostmortem?: () => void }) {
   const F = M.finale;
   const f = D?.finale;
   const inc = D?.incident.id ?? 'INC-0001';
@@ -846,7 +850,7 @@ function Finale({ L, theme, D }: { L: Layout; theme: 'dark' | 'light'; D?: Story
         <FinTile label="Refusals" value={f ? String(f.refusals) : '1'} unit="by Switch" right={f && !f.refusalAt ? <Meta>none</Meta> : <Chip role="blocked" icon="lock" mono>not_permitted · {f ? f.refusalAt : '10:43:56'}</Chip>} />
       </motion.div>
       <motion.div className="mt-8 flex items-center gap-3 text-message" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: F.footerDelay, duration: 0.2, ease: ease.out }}>
-        <Chip role="payco">PayCo · {!f || f.fixes.payco ? 'fix merged ✓' : 'fix pending'}</Chip><span className="font-medium">{!f || (f.fixes.payco && f.fixes.shopco) ? 'Both fixes merged · tests passing on both sides' : 'Waiting for both action items'}</span><Chip role="shopco">ShopCo · {!f || f.fixes.shopco ? 'fix merged ✓' : 'fix pending'}</Chip>
+        <Chip role="payco">PayCo · {!f || f.fixes.payco ? 'fix merged ✓' : 'fix pending'}</Chip><span className="font-medium">{!f || (f.fixes.payco && f.fixes.shopco) ? 'Both fixes merged · tests passing on both sides' : 'Waiting for both action items'}</span><Chip role="shopco">ShopCo · {!f || f.fixes.shopco ? 'fix merged ✓' : 'fix pending'}</Chip>{onPostmortem && <Button variant="primary" icon="record" onClick={onPostmortem} className="ml-3">Read the postmortem</Button>}
       </motion.div>
     </section>
   );

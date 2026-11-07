@@ -45,7 +45,7 @@ export function reduce(all: CwEvent[], nowMs: number, mode: 'live' | 'replay', r
         ledger.push({ id: e.incident, type: 'opened', co: 'mediator', by: 'system', time: clock(e.t), role: 'neutral', guard: 'passed' });
         break;
       case 'message':
-        if (e.text) lanes[lane].push({ ...base, kind: 'message', text: e.text });
+        if (e.text) lanes[lane].push({ ...base, kind: 'message', text: e.text, ...(e.full ? { full: e.full } : {}) });
         break;
       case 'salt':
         salt = e.salt; incidentId ??= e.incident; openedAt ??= e.t;
@@ -142,6 +142,8 @@ export function reduce(all: CwEvent[], nowMs: number, mode: 'live' | 'replay', r
       rootCauseMin: rootCauseAt && openedAt ? Math.max(1, Math.round((rootCauseAt - openedAt) / 60000)) : null,
       disclosures: crossed.length, approvedAll: crossed.every((c) => c.approved), pay, shop,
       refusals: refusals.length, refusalAt: refusals[0] ? clock(refusals[0]) : null, rootCauseAt: rootCauseAt ? clock(rootCauseAt) : null, fixes, linesShared,
+      resolvedAt: resolvedAt ? clock(resolvedAt) : null, guardBlocks: guard.blocked,
+      totalMin: resolvedAt && openedAt ? Math.max(1, Math.round((resolvedAt - openedAt) / 60000)) : null,
     } : null,
     counts: { events: events.length },
   };
