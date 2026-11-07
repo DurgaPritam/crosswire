@@ -141,6 +141,10 @@ function TopBar({ L, S, theme, D, controls, onViewAs, onRun, onSearch }: { L: La
             { value: 'live', label: <><span className="role-approved cw-dot" />Live</> },
             { value: 'replay', label: <><Icon name="replay" size={14} />Replay</> },
           ]} />
+          <a href="?view=security" aria-label="Try to break it" title="Try to break it: the red-team results and a guard sandbox"
+            className={cx('cw-focus inline-flex h-9 flex-none items-center gap-2 whitespace-nowrap rounded-md text-[12.5px] font-[550] text-fg2 shadow-[inset_0_1px_0_var(--cw-hi2),0_0_0_1px_var(--cw-line2)] hover:bg-neutral-tint hover:text-fg', L.full ? 'px-3' : 'w-9 justify-center')}>
+            <Icon name="shield" size={15} />{L.full && 'Try to break it'}
+          </a>
           <Button size="lg" icon="search" ariaLabel="Search" onClick={onSearch} className={L.full ? '!gap-2.5 !pl-3 !pr-2' : '!gap-2 !px-2'}>{L.full && <span className="font-medium text-fg2">Search</span>}<span className="inline-flex gap-[3px]"><Kbd>⌘</Kbd><Kbd>K</Kbd></span></Button>
         </div>
       ) : <Pill role="approved" pulse>Live</Pill>}

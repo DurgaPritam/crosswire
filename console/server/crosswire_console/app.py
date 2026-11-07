@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
+from . import breakit
 from .sources import ROOT, Observer, Tailer, fetch_record, log
 import toolpath  # noqa: E402  (scripts/, on sys.path via .sources)
 
@@ -214,7 +215,15 @@ class Server:
         if path == "/api/config":
             return 200, self.config()
         if path == "/api/security":   # read-only in both modes
-            return (200, security_summary()) if method == "GET" else (405, {"ok": False, "error": "read-only"})
+            return (200, {**security_summary(), "attacks": breakit.attacks()}) if method == "GET" else (405, {"ok": False, "error": "read-only"})
+        if path == "/api/guard-check":   # both modes: runs the real guard's pure check(); posts, approves and stores nothing
+            if method != "POST":
+                return 405, {"error": "POST {company, text}"}
+            try:
+                req = json.loads(body or b"{}")
+            except ValueError:
+                return 400, {"error": "bad JSON"}
+            return breakit.guard_check(str(req.get("company", "")), str(req.get("text", "")))
         if path == "/api/replays":
             return 200, replay_files()
         if path == "/api/replay":
