@@ -1,5 +1,6 @@
 // Live (SSE from console/server) and Replay (a recorded events.jsonl) feeds → StoryData.
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { api } from './api';
 import { reduce } from './reduce';
 import type { CwEvent, StoryData } from './types';
 
@@ -7,7 +8,7 @@ export interface ServerConfig { switch_configured: boolean; observer: string; re
 
 export async function fetchConfig(): Promise<ServerConfig | null> {
   try {
-    const r = await fetch('/api/config');
+    const r = await fetch(api.config());
     return r.ok ? ((await r.json()) as ServerConfig) : null;
   } catch {
     return null;
@@ -45,7 +46,7 @@ export function useReplay(name: string | null, enabled: boolean, initialSpeed: 1
   useEffect(() => {
     if (!enabled || !name) return;
     let off = false;
-    fetch(`/api/replay?name=${encodeURIComponent(name)}`).then((r) => (r.ok ? r.json() : [])).then((evs: CwEvent[]) => {
+    fetch(api.replay(name)).then((r) => (r.ok ? r.json() : [])).then((evs: CwEvent[]) => {
       if (!off) { setEvents(evs); setPos(0); }
     }).catch(() => setEvents([]));
     return () => { off = true; };

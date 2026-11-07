@@ -31,6 +31,7 @@ docs/design/crosswire-renders.zip
 console/server/.state.json
 console/web/node_modules/
 console/web/dist/
+console/web/dist-static/
 
 # Console design QA working output (README screenshots are copied out and compressed)
 docs/screenshots/design/

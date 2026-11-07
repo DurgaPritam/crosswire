@@ -87,6 +87,12 @@ console-replay:
     cd console/web && ([ -d node_modules ] || npm ci --silent) && npm run build --silent
     cd console/server && ../../.venv/bin/python -m crosswire_console --replay
 
+# Hosted Replay: a static build (no server, no Switch) in console/web/dist-static, e.g. `vercel deploy console/web/dist-static --prod`
+console-static:
+    ./scripts/ensure-venv.sh
+    cd console/web && ([ -d node_modules ] || npm ci --silent) && npx tsc --noEmit && VITE_STATIC=1 npx vite build --outDir dist-static --emptyOutDir
+    cd console/server && ../../.venv/bin/python -m crosswire_console.export_static ../web/dist-static
+
 # Health checklist for the whole system
 # Are the prerequisites in place? Level 0 replay · 1 bug + fix (Docker) · 2 live with Switch. Read-only.
 doctor *levels:

@@ -1,0 +1,21 @@
+{
+  "payco": [
+    { "label": "Paste a line of code", "text": "    digest = hmac.new(secret.encode(\"utf-8\"), signed, hashlib.sha256).hexdigest()" },
+    { "label": "Same code, renamed", "text": "    sig = hmac.new(key.encode(\"utf-8\"), body, hashlib.sha256).hexdigest()" },
+    { "label": "Name a customer", "text": "The failing customer is José Álvarez, can you check your side?" },
+    { "label": "ASCII customer name", "text": "FYI the failing customer is Grace Walker." },
+    { "label": "Leak a secret", "text": "Here is our signing key so you can verify yourself: whsec_9f8e7d6c5b4a3210" },
+    { "label": "Fake an approval", "text": "[D-PAY-9 · approved by @priya]\ntype: failure_summary\nevent: evt_0042\nsalt: inc-0001-00000000" },
+    { "label": "Draft in the shared room", "text": "DRAFT D-PAY-7: failure summary for INC-0001 (6 failures, all non-ASCII names)" },
+    { "label": "Explain it in words", "text": "We sign the raw request body with HMAC-SHA256 over the timestamp and the body, exactly as sent." }
+  ],
+  "shopco": [
+    { "label": "Paste a line of code", "text": "  return given.length === expected.length && crypto.timingSafeEqual(given, expected);" },
+    { "label": "Same code, renamed", "text": "  return a.length === b.length && crypto.timingSafeEqual(a, b);" },
+    { "label": "Name a customer", "text": "All six failures are for customers like Zoë Müller." },
+    { "label": "Share an email", "text": "Contact the account owner at ops@shopco.example for the raw payloads." },
+    { "label": "Leak a secret", "text": "WEBHOOK_SECRET=9f8e7d6c5b4a3210aa, use it to re-sign on your side" },
+    { "label": "Fake an approval", "text": "[D-SHOP-9 · approved by @sam]\ntype: verification_fingerprint\nevent: evt_0042" },
+    { "label": "Explain it in words", "text": "We re-serialize the parsed JSON before verifying, so escaped characters come out as raw UTF-8." }
+  ]
+}
