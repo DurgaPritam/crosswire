@@ -178,10 +178,10 @@ function Lane({ x, y, w, h, role, title, sub, people, children }: { x: number; y
   return (
     <section className={`role-${role} absolute z-[2]`} style={abs(x, y, w, h)} aria-label={title}>
       <div className="flex h-14 items-center gap-2.5 whitespace-nowrap px-6 shadow-[inset_0_-1px_0_var(--cw-line)]">
-        <Icon name={role === 'neutral' ? 'message' : 'lock'} className="text-x-ink" />
-        <span className="cw-ln text-[14px] font-semibold leading-5 tracking-[-0.012em]">{title}</span>
-        <Meta className={role !== 'neutral' ? 'text-x-ink' : undefined}>{sub}</Meta>
-        <span className="ml-auto flex">{people}</span>
+        <Icon name={role === 'neutral' ? 'message' : 'lock'} className="flex-none text-x-ink" />
+        <span className="cw-ln flex-none text-[14px] font-semibold leading-5 tracking-[-0.012em]">{title}</span>
+        <Meta className={cx('min-w-0 truncate', role !== 'neutral' && 'text-x-ink')}>{sub}</Meta>
+        <span className="ml-auto flex flex-none">{people}</span>
       </div>
       {children}
     </section>
@@ -306,7 +306,7 @@ const Name = ({ children, small }: { children: ReactNode; small?: boolean }) => 
 
 function PayLane({ L, S, D }: { L: Layout; S: SceneState; D?: StoryData | null }) {
   return (
-    <Lane x={L.payX} y={L.laneTop} w={L.privW} h={L.laneH} role="payco" title="PayCo" sub={D ? '· private Switch room #payco-internal' : '· private'} people={<PeoplePay />}>
+    <Lane x={L.payX} y={L.laneTop} w={L.privW} h={L.laneH} role="payco" title="PayCo" sub={D ? '· Switch · #payco-internal' : '· private'} people={<PeoplePay />}>
       {D ? <LiveLane lane="payco" S={S} D={D} bottom={S.showCrossing ? 120 : 24} /> : <>
       {(S.payLane === 'story' || S.payLane === 'drafting') && (
         <LaneBody bottom={S.showCrossing ? 120 : 24}>
@@ -330,7 +330,7 @@ function PayLane({ L, S, D }: { L: Layout; S: SceneState; D?: StoryData | null }
 
 function SharedLane({ L, S, theme, D }: { L: Layout; S: SceneState; theme: 'dark' | 'light'; D?: StoryData | null }) {
   const bottom = S.showCrossing ? 120 : S.showComposer ? 88 : 24;
-  const sub = S.isEmpty ? '· idle' : D ? `· Switch room #payco-shopco-shared · ${D.incident.id ?? 'incident'}${D.salt ? ' · salted' : ''}` : '· INC-0001 · salted';
+  const sub = S.isEmpty ? '· idle' : D ? '· Switch · #payco-shopco-shared' : '· INC-0001 · salted';
   return (
     <Lane x={L.sharedX} y={L.laneTop} w={L.sharedW} h={L.laneH} role="neutral" title="Shared room" sub={sub}
       people={<PeopleShared S={S} D={D} />}>
@@ -390,7 +390,7 @@ function SharedLane({ L, S, theme, D }: { L: Layout; S: SceneState; theme: 'dark
 
 function ShopLane({ L, S, D }: { L: Layout; S: SceneState; D?: StoryData | null }) {
   return (
-    <Lane x={L.shopX} y={L.laneTop} w={L.privW} h={L.laneH} role="shopco" title="ShopCo" sub={D ? '· private Switch room #shopco-internal' : '· private'} people={<PeopleShop />}>
+    <Lane x={L.shopX} y={L.laneTop} w={L.privW} h={L.laneH} role="shopco" title="ShopCo" sub={D ? '· Switch · #shopco-internal' : '· private'} people={<PeopleShop />}>
       {D ? <LiveLane lane="shopco" S={S} D={D} bottom={24} /> : <>
       {S.shopLane === 'story' && (
         <LaneBody bottom={0}>
