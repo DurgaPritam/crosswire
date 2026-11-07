@@ -3,6 +3,7 @@
 set -uo pipefail
 cd "$(dirname "$0")/.."
 export PATH="$PATH:$HOME/.docker/bin"
+export PYTHONPATH="$(pwd)/packages/wirecheck${PYTHONPATH:+:$PYTHONPATH}"   # see the justfile: don't depend on the editable install's .pth
 ./scripts/ensure-venv.sh || exit 1
 [ -f spikes/agent-a/.claude/settings.json ] || ./spikes/render-settings.sh >/dev/null   # gitignored (absolute paths)
 PY=.venv/bin/python

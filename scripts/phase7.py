@@ -166,6 +166,7 @@ def step_users(gw: Gateway, e: dict[str, str], st: dict[str, Any]) -> None:
         pw = secrets.token_urlsafe(18) + "Aa1!"
         created = gw.req("POST", "/users", {"name": display, "email": person_email(name), "password": pw, "role": "user"})
         mmlib.set_env_value(f"SWITCH_{name.upper()}_PASSWORD", pw)
+        e[f"SWITCH_{name.upper()}_PASSWORD"] = pw   # later steps (claims) read `e`, not .env: keep them in sync on a first run
         st.setdefault("users", {})[name] = created["id"]
         say(f"user {name}: created ({created['id']}), password saved to .env")
     me = gw.req("GET", "/auth/me")

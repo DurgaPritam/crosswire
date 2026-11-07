@@ -1,6 +1,9 @@
 # Crosswire commands. `just doctor` checks what each level needs; `just --list` shows every recipe.
 set dotenv-load := true
 export PATH := env_var('PATH') + ":" + env_var('HOME') + "/.docker/bin"
+# wirecheck straight from the source tree: macOS can flag the editable install's .pth file hidden
+# (e.g. under an iCloud-synced Desktop), and Python then skips it and `import wirecheck` fails.
+export PYTHONPATH := justfile_directory() + "/packages/wirecheck" + if env_var_or_default('PYTHONPATH', '') == '' { '' } else { ':' + env_var('PYTHONPATH') }
 
 default:
     @just --list
