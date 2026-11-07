@@ -12,17 +12,22 @@ Neither side sees the other's code or customer data, and a person approves every
 </p>
 
 <p align="center">
-  <b><a href="VIDEO_URL">▶ 3-minute demo video</a></b> ·
+  <b><a href="https://www.youtube.com/watch?v=rZNoJcMxE5k">▶ 3-minute demo video</a></b> ·
   <a href="https://crosswire-plum.vercel.app/">Replay the incident in a minute</a> ·
   <a href="#how-crosswire-uses-switch">How we use Switch</a> ·
   <a href="https://crosswire-plum.vercel.app/?view=security">Try to break it</a> ·
   <a href="#run-it">Run it yourself</a>
 </p>
-<!-- TODO: replace VIDEO_URL once the video is uploaded -->
 
 <p align="center"><img src="docs/screenshots/console-switch-labels.png" alt="The Incident Console during run 20: PayCo's private room, the shared room and ShopCo's private room side by side, every post tagged with the Switch feature that carried it"></p>
 
 <p align="center"><sub>Run 20, 2 minutes 39 seconds in. Every post carries a <b>SWITCH</b> tag naming the feature that produced it: the private room it stayed in, the role it was addressed to, the approver's signature, the room document only the mediator can edit.</sub></p>
+
+## Watch the demo
+
+<p align="center"><a href="https://www.youtube.com/watch?v=rZNoJcMxE5k"><img src="https://img.youtube.com/vi/rZNoJcMxE5k/maxresdefault.jpg" width="720" alt="Demo video: the notary's byte comparison during run 20, where data.customer.name is the only field that differs"></a></p>
+
+<p align="center"><b><a href="https://www.youtube.com/watch?v=rZNoJcMxE5k">▶ Watch the 3-minute demo on YouTube</a></b> · or <a href="https://crosswire-plum.vercel.app/">replay the real incident in your browser</a></p>
 
 ## In one real run
 
