@@ -142,7 +142,7 @@ export function reduce(all: CwEvent[], nowMs: number, mode: 'live' | 'replay', r
       rootCauseMin: rootCauseAt && openedAt ? Math.max(1, Math.round((rootCauseAt - openedAt) / 60000)) : null,
       disclosures: crossed.length, approvedAll: crossed.every((c) => c.approved), pay, shop,
       refusals: refusals.length, refusalAt: refusals[0] ? clock(refusals[0]) : null, rootCauseAt: rootCauseAt ? clock(rootCauseAt) : null, fixes, linesShared,
-      resolvedAt: resolvedAt ? clock(resolvedAt) : null, guardBlocks: guard.blocked,
+      resolvedAt: resolvedAt ? clock(resolvedAt) : null, resolvedT: resolvedAt, guardBlocks: guard.blocked,
       totalMin: resolvedAt && openedAt ? Math.max(1, Math.round((resolvedAt - openedAt) / 60000)) : null,
     } : null,
     counts: { events: events.length },

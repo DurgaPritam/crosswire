@@ -57,6 +57,6 @@ export interface StoryData {
   finale: { rootCauseMin: number | null; disclosures: number; approvedAll: boolean; pay: number; shop: number; refusals: number;
             refusalAt: string | null; rootCauseAt: string | null; fixes: { payco: boolean; shopco: boolean };
             linesShared: number | null;   // measured by the grader (null: not measured for this recording)
-            resolvedAt: string | null; totalMin: number | null; guardBlocks: number } | null;
+            resolvedAt: string | null; resolvedT: number | null; totalMin: number | null; guardBlocks: number } | null;
   counts: { events: number };
 }

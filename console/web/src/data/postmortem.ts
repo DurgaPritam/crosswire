@@ -30,7 +30,12 @@ export const clean = (s: string, lead?: RegExp) => {
   return t;
 };
 const first = (msgs: Msg[], who: string[], re: RegExp) => msgs.find((m) => m.kind === 'message' && who.includes(m.who) && re.test(m.text));
-const full = (m: Msg) => m.full ?? m.text;   // recordings made before `full` existed only hold the 360-char display text
+const full = (m: Msg) => m.full ?? m.text;
+/** The mediator assigns fixes as "action item for ShopCo: …" (runs 5-8) or "**ShopCo action item (INC-0001):** …" (run 20+). */
+function actionItem(text: string): { company: string; item: string } | null {
+  const a = text.match(/action item for (PayCo|ShopCo)\s*:\s*([\s\S]+)/i) ?? text.match(/\*\*(PayCo|ShopCo) action item[^*]*\*\*\s*:?\s*([\s\S]+)/i);
+  return a ? { company: a[1], item: a[2].trim() } : null;
+}   // recordings made before `full` existed only hold the 360-char display text
 
 export function buildPostmortem(D: StoryData): Postmortem | null {
   if (!D.finale) return null;
@@ -46,12 +51,12 @@ export function buildPostmortem(D: StoryData): Postmortem | null {
 
   const actions: ActionItem[] = [];
   for (const m of shared) {
-    const a = m.kind === 'message' && m.who === 'mediator' ? full(m).match(/action item for (PayCo|ShopCo)\s*:\s*([\s\S]+)/i) : null;
+    const a = m.kind === 'message' && m.who === 'mediator' ? actionItem(full(m)) : null;
     if (!a) continue;
-    const company = (a[1].toLowerCase() === 'payco' ? 'PayCo' : 'ShopCo') as ActionItem['company'];
+    const company = (a.company.toLowerCase() === 'payco' ? 'PayCo' : 'ShopCo') as ActionItem['company'];
     const agent = company === 'PayCo' ? 'payco-agent' : 'shopco-agent';
     const done = shared.find((x) => x.kind === 'message' && x.who === agent && x.t >= m.t && /action item done/i.test(x.text));
-    actions.push({ company, item: a[2].trim(), assignedAt: m.time, assignedT: m.t, doneT: done?.t ?? null, done: !!done || f.fixes[company === 'PayCo' ? 'payco' : 'shopco'],
+    actions.push({ company, item: a.item, assignedAt: m.time, assignedT: m.t, doneT: done?.t ?? null, done: !!done || f.fixes[company === 'PayCo' ? 'payco' : 'shopco'],
                    doneAt: done?.time ?? null, report: done ? clean(done.text, /^[\s\S]*?action item done\s*:\s*/i) : null });
   }
 
@@ -66,8 +71,10 @@ export function buildPostmortem(D: StoryData): Postmortem | null {
   } : null;
 
   // the mediator's last word before the incident closed: the closing check
-  const closing = [...shared].reverse().find((m) => m.kind === 'message' && m.who === 'mediator' && m.t >= (agreed?.t ?? 0)
-    && /\bresolved\b|\bclos(?:e|ed|ing)\b|0 signature failures|failures since the fix/i.test(m.text) && !/to close, please/i.test(m.text));
+  const mediatorAfterAgreed = shared.filter((m) => m.kind === 'message' && m.who === 'mediator' && m.t >= (agreed?.t ?? 0));
+  const closing = f.resolvedT !== null
+    ? [...mediatorAfterAgreed].reverse().find((m) => m.t <= (f.resolvedT as number) + 3000)   // its last word as the incident resolved
+    : [...mediatorAfterAgreed].reverse().find((m) => /\bresolved\b|0 signature failures|failures since the fix/i.test(m.text));
   const verification = closing ? clean(full(closing)) : null;
 
   const T: TimelineItem[] = [];
