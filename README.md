@@ -361,4 +361,5 @@ Built during **Flip the Switch** (Nov 4–7, 2026) on [Switch](https://github.co
 roles, addressing policies, room documents, identity claims, the agent protocol, Console and the Mattermost bridge) ·
 [Claude Code](https://claude.com/claude-code) · Claude Design (visual identity and Console design) · Mattermost ·
 Docker · Python, Node, React, Tailwind, Framer Motion.
-<!-- TODO: team names -->
+
+**Team:** Durga Pritam Suggisetti · Rama Soujanya Chatti
