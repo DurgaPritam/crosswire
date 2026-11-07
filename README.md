@@ -5,7 +5,7 @@
 <p align="center">
   <a href="https://github.com/DurgaPritam/crosswire/actions/workflows/ci.yml"><img src="https://github.com/DurgaPritam/crosswire/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a>
   <img src="https://img.shields.io/badge/built%20on-Switch-8A7CF0" alt="Built on Switch">
-  <img src="https://img.shields.io/badge/Flip%20the%20Switch-Track%2001%20%C2%B7%20Business%20Workflow-2BB5A5" alt="Flip the Switch, Track 01: Business Workflow">
+  <img src="https://img.shields.io/badge/Flip%20the%20Switch-Best%20Business%20Workflow-2BB5A5" alt="Flip the Switch: Best Business Workflow">
   <img src="https://img.shields.io/badge/red%20team-14%2F14%20blocked-E8735A" alt="Red team: 14 of 14 live attacks blocked">
 </p>
 
