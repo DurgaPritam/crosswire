@@ -71,7 +71,7 @@ features Crosswire relies on, and where they're used:
 [`just`](https://github.com/casey/just).
 
 ```bash
-git clone <repo-url> crosswire && cd crosswire
+git clone https://github.com/DurgaPritam/crosswire.git && cd crosswire
 just console-replay           # http://127.0.0.1:7300 plays a real recorded run
 ```
 

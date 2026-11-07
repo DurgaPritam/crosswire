@@ -1,0 +1,33 @@
+{
+ "agent": "approver",
+ "owner": "admin (UPDATE-003 ownership model)",
+ "source": "GET /gateway/agents/{id} read-back, ids resolved to names",
+ "rules": [
+  {
+   "rooms": [
+    "#payco-internal"
+   ],
+   "room_groups": "*",
+   "users": [
+    "@priya (Mattermost)"
+   ],
+   "agents": [],
+   "owner": false,
+   "owner_agents": false,
+   "platform": false
+  },
+  {
+   "rooms": [
+    "#shopco-internal"
+   ],
+   "room_groups": "*",
+   "users": [
+    "@sam (Mattermost)"
+   ],
+   "agents": [],
+   "owner": false,
+   "owner_agents": false,
+   "platform": false
+  }
+ ]
+}
