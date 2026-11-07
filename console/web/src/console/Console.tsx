@@ -8,7 +8,8 @@ import { clock } from '../data/reduce';
 import type { ReplayControls } from '../data/source';
 import type { Msg, StoryData } from '../data/types';
 import { BYTE_ROWS, D_PAY_1, D_PAY_2, D_SHOP_2, EVENTS, GUARD, hypotheses, LEDGER, SYMPTOMS, type DraftRow } from '../fixtures/design-story';
-import type { ConsoleProps, Role, Scene, ViewAs } from './types';
+import type { ConsoleProps, PanelTab, Role, Scene, ViewAs } from './types';
+import type { Lane } from '../data/types';
 
 const cx = (...c: (string | false | undefined | null)[]) => c.filter(Boolean).join(' ');
 const abs = (x: number, y: number, w?: number, h?: number): CSSProperties => ({ position: 'absolute', left: x, top: y, width: w, height: h });
@@ -22,14 +23,17 @@ export function Console({ scene, theme = 'dark', breakpoint = 'w1920', grain = 0
   const [confirm, setConfirm] = useState(false);
   const cmpId = D?.compare?.id;
   useEffect(() => { if (!cmpId) return; setDiffOpen(true); const id = setTimeout(() => setDiffOpen(false), 9000); return () => clearTimeout(id); }, [cmpId]);
+  const [panelOpen, setPanelOpen] = useState<PanelTab | null>(null);   // rail layouts: the panel expanded over the ShopCo lane
+  const [searchOpen, setSearchOpen] = useState(false);
+  useEffect(() => { const h = () => setSearchOpen(true); document.addEventListener('cw:search', h); return () => document.removeEventListener('cw:search', h); }, []);
   const S = D ? dataState(D, scene, viewAs, L.tablet, diffOpen) : sceneState(scene, L.tablet);
-  useShortcuts(scene, onSceneChange, D ? () => setDiffOpen(false) : undefined);
+  useShortcuts(scene, onSceneChange, () => { if (D) setDiffOpen(false); setPanelOpen(null); });
   return (
     <div data-theme={theme} className={cx('cw-root relative overflow-hidden bg-bg font-sans text-ui text-fg antialiased', S.isPresent && 'cw-present')}
       style={{ width: L.W, height: L.H, ['--glowk' as string]: seamGlow, fontFeatureSettings: "'cv11','ss01'" }}>
       <Ambient L={L} />
       <Grain opacity={grain} />
-      <TopBar L={L} S={S} theme={theme} D={D} controls={controls} onViewAs={setViewAs} onRun={() => setConfirm(true)} />
+      <TopBar L={L} S={S} theme={theme} D={D} controls={controls} onViewAs={setViewAs} onRun={() => setConfirm(true)} onSearch={() => setSearchOpen(true)} />
       {L.tablet && <LaneTabs shared={D ? sharedPeople(S, D).length : 6} />}
       {!S.isFinale && (
         <>
@@ -40,12 +44,14 @@ export function Console({ scene, theme = 'dark', breakpoint = 'w1920', grain = 0
           {S.isRefusal && <RefusalOverlay L={L} D={D} />}
           {S.showCrossing && <CrossingCard L={L} D={D} />}
           {L.panel === 'full' && <SidePanel L={L} S={S} D={D} />}
-          {L.panel === 'rail' && <Rail L={L} D={D} />}
+          {L.panel === 'rail' && <Rail L={L} D={D} onOpen={setPanelOpen} />}
+          {L.panel === 'rail' && panelOpen && <SidePanel L={L} S={S} D={D} tab0={panelOpen} onCollapse={() => setPanelOpen(null)} />}
           <AnimatePresence>{S.isByteDiff && <ByteDiff L={L} D={D} onClose={() => setDiffOpen(false)} />}</AnimatePresence>
         </>
       )}
       {S.isFinale && <Finale L={L} theme={theme} D={D} />}
       <Timeline L={L} S={S} D={D} replay={replay} />
+      <AnimatePresence>{searchOpen && <SearchPalette S={S} D={D} replay={replay} onClose={() => setSearchOpen(false)} />}</AnimatePresence>
       <AnimatePresence>{confirm && <RunDialog onCancel={() => setConfirm(false)} onRun={() => { setConfirm(false); controls?.onRunLive?.(); }} />}</AnimatePresence>
     </div>
   );
@@ -90,7 +96,7 @@ function Grain({ opacity }: { opacity: number }) {
 }
 
 /* ---------- Top bar: 64 h · glass-bar blur 20 · px 24 · gap 16 ---------- */
-function TopBar({ L, S, theme, D, controls, onViewAs, onRun }: { L: Layout; S: SceneState; theme: 'dark' | 'light'; D?: StoryData | null; controls?: ConsoleProps['controls']; onViewAs?: (v: ViewAs) => void; onRun?: () => void }) {
+function TopBar({ L, S, theme, D, controls, onViewAs, onRun, onSearch }: { L: Layout; S: SceneState; theme: 'dark' | 'light'; D?: StoryData | null; controls?: ConsoleProps['controls']; onViewAs?: (v: ViewAs) => void; onRun?: () => void; onSearch?: () => void }) {
   const inc = D?.incident.id ?? 'INC-0001';
   return (
     <header className={cx('cw-glass absolute z-[9] flex items-center gap-4 bg-glass-bar px-6 shadow-[inset_0_-1px_0_var(--cw-line)]', S.isPresent && 'rounded-xl shadow-e2')} style={abs(L.insX, L.barT, L.barW, 64)}>
@@ -135,7 +141,7 @@ function TopBar({ L, S, theme, D, controls, onViewAs, onRun }: { L: Layout; S: S
             { value: 'live', label: <><span className="role-approved cw-dot" />Live</> },
             { value: 'replay', label: <><Icon name="replay" size={14} />Replay</> },
           ]} />
-          <Button size="lg" icon="search" ariaLabel="Search" className={L.full ? '!gap-2.5 !pl-3 !pr-2' : '!gap-2 !px-2'}>{L.full && <span className="font-medium text-fg2">Search</span>}<span className="inline-flex gap-[3px]"><Kbd>⌘</Kbd><Kbd>K</Kbd></span></Button>
+          <Button size="lg" icon="search" ariaLabel="Search" onClick={onSearch} className={L.full ? '!gap-2.5 !pl-3 !pr-2' : '!gap-2 !px-2'}>{L.full && <span className="font-medium text-fg2">Search</span>}<span className="inline-flex gap-[3px]"><Kbd>⌘</Kbd><Kbd>K</Kbd></span></Button>
         </div>
       ) : <Pill role="approved" pulse>Live</Pill>}
     </header>
@@ -579,13 +585,15 @@ function CrossingCard({ L, D }: { L: Layout; D?: StoryData | null }) {
 }
 
 /* ---------- Side panel: 400 w · inset 16 · glass-panel blur 24 · r-16 · header 56 · tabs 40 ---------- */
-function SidePanel({ L, S, D }: { L: Layout; S: SceneState; D?: StoryData | null }) {
+/** `onCollapse` set = expanded from the rail: drawn over the ShopCo lane, right-aligned with the rail, opening on `tab0`. */
+function SidePanel({ L, S, D, tab0, onCollapse }: { L: Layout; S: SceneState; D?: StoryData | null; tab0?: PanelTab; onCollapse?: () => void }) {
   const reduce = useReducedMotion();
-  const [tab, setTab] = useState(S.panelTab);
-  useEffect(() => setTab(S.panelTab), [S.panelTab]);
+  const [tab, setTab] = useState(tab0 ?? S.panelTab);
+  useEffect(() => setTab(tab0 ?? S.panelTab), [S.panelTab, tab0]);
+  const W = 400, box = onCollapse ? abs(L.panelX + L.panelW - W, L.panelY, W, L.panelH) : abs(L.panelX, L.panelY, L.panelW, L.panelH);
   return (
-    <aside className="cw-glass absolute z-[4] overflow-hidden rounded-xl bg-glass-panel shadow-e3" style={{ ...abs(L.panelX, L.panelY, L.panelW, L.panelH), ['--blur' as string]: '24px', ['--sat' as string]: 1.35 }} aria-label="Incident">
-      <div className="flex h-14 items-center justify-between pl-5 pr-3"><Label>Incident</Label>{!S.isPresent && <button aria-label="Collapse panel" className="cw-focus grid h-8 w-8 place-items-center rounded-md text-fg2 hover:bg-neutral-tint hover:text-fg"><Icon name="panel" /></button>}</div>
+    <aside className={cx('cw-glass absolute overflow-y-auto overflow-x-hidden rounded-xl bg-glass-panel shadow-e3', onCollapse ? 'z-[8]' : 'z-[4]')} style={{ ...box, ['--blur' as string]: '24px', ['--sat' as string]: 1.35 }} aria-label="Incident">
+      <div className="flex h-14 items-center justify-between pl-5 pr-3"><Label>Incident</Label>{!S.isPresent && onCollapse && <button aria-label="Collapse panel" onClick={onCollapse} className="cw-focus grid h-8 w-8 place-items-center rounded-md text-fg2 hover:bg-neutral-tint hover:text-fg"><Icon name="panel" /></button>}</div>
       <div role="tablist" className="relative flex gap-0.5 px-2 after:absolute after:inset-x-0 after:bottom-0 after:h-px after:bg-line">
         {([['record', 'Incident Record', undefined], ['ledger', 'Ledger', D ? D.ledger.length : 7], ['guard', 'Guard', D ? D.guard.blocked : 3]] as const).map(([k, l, n]) => (
           <button key={k} role="tab" aria-selected={tab === k} onClick={() => setTab(k)} className={cx('cw-focus cw-tab relative inline-flex h-10 items-center gap-2 rounded-t-md px-3 text-ui font-medium', tab === k ? 'text-fg' : 'text-fg2 hover:bg-neutral-tint hover:text-fg')}>
@@ -735,15 +743,16 @@ function PlusBytes({ animate, n: target = 4, small }: { animate?: boolean; n?: n
   return <span className={cx('inline-flex flex-none items-center whitespace-nowrap rounded-full bg-root-cause-tint px-2.5 font-mono font-semibold tabular-nums shadow-[inset_0_0_0_1px_var(--cw-line2),0_0_18px_-2px_var(--cw-seam-shadow)]', small ? 'h-[22px] text-[11.5px]' : 'h-[26px] text-[12px]')}>+{n} bytes</span>;
 }
 
-function Rail({ L, D }: { L: Layout; D?: StoryData | null }) {
+function Rail({ L, D, onOpen }: { L: Layout; D?: StoryData | null; onOpen?: (t: PanelTab) => void }) {
   const blocked = D ? D.guard.blocked : 3;
+  const btn = 'cw-focus grid h-8 w-8 place-items-center rounded-md text-fg2 hover:bg-neutral-tint hover:text-fg';
   return (
     <aside className="cw-glass absolute z-[4] flex flex-col items-center gap-1.5 rounded-xl bg-glass-panel py-3 shadow-e3" style={abs(L.panelX, L.panelY, 56, L.panelH)} aria-label="Incident panel (collapsed)">
-      <button aria-label="Expand panel" className="cw-focus grid h-8 w-8 place-items-center rounded-md text-fg2"><Icon name="panel" /></button>
+      <button aria-label="Expand panel" title="Expand panel" onClick={() => onOpen?.('record')} className={btn}><Icon name="panel" /></button>
       <span className="my-1 h-px w-6 bg-line2" />
-      <button aria-label="Incident Record" className="cw-focus grid h-8 w-8 place-items-center rounded-md bg-s3 text-fg shadow-[inset_0_1px_0_var(--cw-hi2),0_0_0_1px_var(--cw-line2)]"><Icon name="record" /></button>
-      <button aria-label="Ledger" className="cw-focus grid h-8 w-8 place-items-center rounded-md text-fg2"><Icon name="hash" /></button>
-      <button aria-label={`Guard, ${blocked} blocked`} className="cw-focus role-blocked relative grid h-8 w-8 place-items-center rounded-md text-fg2"><Icon name="shield" />{blocked > 0 && <span className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-x" />}</button>
+      <button aria-label="Incident Record" title="Incident Record" onClick={() => onOpen?.('record')} className="cw-focus grid h-8 w-8 place-items-center rounded-md bg-s3 text-fg shadow-[inset_0_1px_0_var(--cw-hi2),0_0_0_1px_var(--cw-line2)]"><Icon name="record" /></button>
+      <button aria-label="Ledger" title="Ledger" onClick={() => onOpen?.('ledger')} className={btn}><Icon name="hash" /></button>
+      <button aria-label={`Guard, ${blocked} blocked`} title="Guard" onClick={() => onOpen?.('guard')} className={cx(btn, 'role-blocked relative')}><Icon name="shield" />{blocked > 0 && <span className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-x" />}</button>
     </aside>
   );
 }
@@ -900,6 +909,76 @@ function Timeline({ L, S, D, replay }: { L: Layout; S: SceneState; D?: StoryData
 }
 function Legend({ role, children }: { role: Role; children: ReactNode }) {
   return <span className={`role-${role} flex items-center gap-2 whitespace-nowrap text-[11.5px] leading-4 text-fg2`}><i className={cx('h-[7px] w-[7px] rounded-full shadow-[0_0_0_2px_var(--xt)]', role === 'seam' ? 'bg-root-cause' : 'bg-x')} />{children}</span>;
+}
+
+/** ⌘K search over the messages shown so far. Lanes frosted for the current "View as" are never searched, so search can't leak them. */
+function SearchPalette({ S, D, replay, onClose }: { S: SceneState; D?: StoryData | null; replay?: ReplayControls; onClose: () => void }) {
+  const [q, setQ] = useState('');
+  const [sel, setSel] = useState(0);
+  const lanes: { lane: Lane; label: string; role: Role; shown: boolean }[] = [
+    { lane: 'shared', label: 'Shared room', role: 'neutral', shown: true },
+    { lane: 'payco', label: 'PayCo private', role: 'payco', shown: S.payLane !== 'frosted' },
+    { lane: 'shopco', label: 'ShopCo private', role: 'shopco', shown: S.shopLane !== 'frosted' },
+  ];
+  const hidden = lanes.filter((l) => !l.shown).map((l) => l.label);
+  const needle = q.trim().toLowerCase();
+  const results = !D || !needle ? [] : lanes.filter((l) => l.shown)
+    .flatMap((l) => D.lanes[l.lane].map((m) => ({ ...l, m })))
+    .filter(({ m }) => [m.text, m.who, m.title, m.dId].some((s) => s?.toLowerCase().includes(needle)))
+    .sort((a, b) => a.m.t - b.m.t).slice(0, 50);
+  useEffect(() => setSel(0), [needle]);
+  const go = (r?: (typeof results)[number]) => {
+    if (!r) return;
+    if (replay && D?.openedAt) replay.seek((r.m.t - D.openedAt) / 1000);
+    onClose();
+  };
+  const onKey = (e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') { e.preventDefault(); onClose(); }
+    else if (e.key === 'ArrowDown') { e.preventDefault(); setSel((i) => Math.min(results.length - 1, i + 1)); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setSel((i) => Math.max(0, i - 1)); }
+    else if (e.key === 'Enter') { e.preventDefault(); go(results[sel]); }
+  };
+  const snippet = (text: string) => {
+    const i = text.toLowerCase().indexOf(needle);
+    if (i < 0) return <>{text.slice(0, 140)}</>;
+    const start = Math.max(0, i - 48);
+    return <>{start > 0 && '…'}{text.slice(start, i)}<mark className="rounded-[3px] bg-root-cause-tint px-0.5 text-fg">{text.slice(i, i + needle.length)}</mark>{text.slice(i + needle.length, i + needle.length + 90)}</>;
+  };
+  return (
+    <>
+      <motion.div className="cw-glass absolute inset-0 z-[20] bg-scrim" style={{ ['--blur' as string]: '6px' }} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} />
+      <motion.div role="dialog" aria-modal="true" aria-label="Search" className="cw-glass absolute left-1/2 top-[112px] z-[21] w-[640px] -translate-x-1/2 overflow-hidden rounded-2xl bg-glass-modal shadow-e3"
+        style={{ ['--blur' as string]: '28px', ['--sat' as string]: 1.4 }} initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={spring.glide}>
+        <div className="flex h-14 items-center gap-3 px-5 shadow-[inset_0_-1px_0_var(--cw-line)]">
+          <Icon name="search" className="text-fg2" />
+          <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={onKey} placeholder="Search messages, people, disclosures (D-PAY-1)…" aria-label="Search"
+            className="h-full flex-1 bg-transparent text-[15px] text-fg outline-none placeholder:text-fg3" />
+          <Kbd>esc</Kbd>
+        </div>
+        <div className="max-h-[440px] overflow-y-auto p-2">
+          {!D && <div className="px-3 py-6 text-center"><Meta>Search works on Live and Replay data.</Meta></div>}
+          {D && !needle && <div className="px-3 py-6 text-center"><Meta>Type to search what has happened up to {fmt(S.now)}.</Meta></div>}
+          {D && needle && results.length === 0 && <div className="px-3 py-6 text-center"><Meta>No matches for “{q.trim()}”.</Meta></div>}
+          {results.map((r, i) => (
+            <button key={`${r.lane}-${r.m.id}`} onMouseEnter={() => setSel(i)} onClick={() => go(r)}
+              className={cx('flex w-full flex-col gap-1 rounded-lg px-3 py-2.5 text-left', i === sel ? 'bg-s3 shadow-[inset_0_0_0_1px_var(--cw-line2)]' : 'hover:bg-neutral-tint')}>
+              <div className="flex items-center gap-2">
+                <Chip size="xs" role={r.role}>{r.label}</Chip>
+                <span className="text-[12.5px] font-semibold">{r.m.who}</span>
+                {r.m.dId && <span className="font-mono text-[11px] text-fg2">{r.m.dId}</span>}
+                <Meta className="ml-auto">{r.m.time}</Meta>
+              </div>
+              <div className="line-clamp-2 text-[13px] leading-5 text-fg2">{snippet(r.m.text || r.m.title || '')}</div>
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center gap-4 px-5 py-2.5 shadow-[inset_0_1px_0_var(--cw-line)]">
+          <Meta>↑↓ select · ↵ {replay ? 'jump to that moment' : 'close'}</Meta>
+          {hidden.length > 0 && <Meta className="ml-auto">Not searched (hidden in this view): {hidden.join(', ')}</Meta>}
+        </div>
+      </motion.div>
+    </>
+  );
 }
 
 /** Confirm before a live run: it resets the demo and drives the real rooms. */
