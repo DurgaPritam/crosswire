@@ -101,12 +101,13 @@ function Grain({ opacity }: { opacity: number }) {
 /* ---------- Top bar: 64 h · glass-bar blur 20 · px 24 · gap 16 ---------- */
 function TopBar({ L, S, theme, D, controls, onViewAs, onRun, onSearch, onPostmortem }: { L: Layout; S: SceneState; theme: 'dark' | 'light'; D?: StoryData | null; controls?: ConsoleProps['controls']; onViewAs?: (v: ViewAs) => void; onRun?: () => void; onSearch?: () => void; onPostmortem?: () => void }) {
   const inc = D?.incident.id ?? 'INC-0001';
+  const runName = D ? (D.runNo ? `run #${D.runNo}` : (D.run ?? 'a recorded run').replace(/\.events\.jsonl$/, '').replace(/^run-/, 'run #')) : 'run #7';
   return (
-    <header className={cx('cw-glass absolute z-[9] flex items-center gap-4 bg-glass-bar px-6 shadow-[inset_0_-1px_0_var(--cw-line)]', S.isPresent && 'rounded-xl shadow-e2')} style={abs(L.insX, L.barT, L.barW, 64)}>
+    <header className={cx('cw-glass absolute z-[9] flex items-center bg-glass-bar shadow-[inset_0_-1px_0_var(--cw-line)]', L.full ? 'gap-4 px-6' : 'gap-3 px-4', S.isPresent && 'rounded-xl shadow-e2')} style={abs(L.insX, L.barT, L.barW, 64)}>
       <div className="flex flex-none items-center gap-2.5">
         <Mark size={24} theme={theme} />
         <span className="text-[17px] font-semibold leading-6 tracking-[-0.04em]">Crosswire</span>
-        {L.full && <Meta className="ml-0.5">Incident Console</Meta>}
+        {L.full && !onPostmortem && <Meta className="ml-0.5">Incident Console</Meta>}
       </div>
       <span className="h-6 w-px flex-none bg-line2" />
       {S.incident === 'investigating' && <Pill role="investigating" pulse><span className="font-mono text-[11.5px]">{inc}</span>· investigating</Pill>}
@@ -114,7 +115,7 @@ function TopBar({ L, S, theme, D, controls, onViewAs, onRun, onSearch, onPostmor
       {S.incident === 'resolved' && <Pill role="approved"><span className="font-mono text-[11.5px]">{inc}</span>· resolved</Pill>}
       {S.incident === 'connecting' && <Pill role="neutral">Connecting to room <Typing /></Pill>}
       {S.incident === 'none' && <Pill role="neutral">No active incident</Pill>}
-      {S.isReplay && <Chip icon="replay">{D ? `Replay of ${D.runNo ? `run #${D.runNo}` : (D.run ?? 'a recorded run').replace(/\.events\.jsonl$/, '').replace(/^run-/, 'run #')} · real transcript` : 'Replay of run #7 · real transcript'}</Chip>}
+      {S.isReplay && <Chip icon="replay">{L.full ? `Replay of ${runName} · real transcript` : `${runName} · replay`}</Chip>}
       <div className="flex flex-none items-center gap-2 text-fg2">
         <Icon name="clock" />
         <span className="font-mono text-[15px] font-medium tabular-nums text-fg">{S.isLoading ? '--:--' : fmt(S.now)}</span>
@@ -134,7 +135,7 @@ function TopBar({ L, S, theme, D, controls, onViewAs, onRun, onSearch, onPostmor
       )}
       <span className="flex-1" />
       {!S.isPresent ? (
-        <div className="flex flex-none items-center gap-4">
+        <div className={cx('flex flex-none items-center', L.full ? 'gap-3' : 'gap-2')}>
           {controls && S.mode === 'live' && controls.configured && (
             <Button variant="primary" icon={controls.running ? 'clock' : 'terminal'} disabled={controls.running} onClick={onRun}>{controls.running ? 'Running…' : 'Run live incident'}</Button>
           )}
@@ -144,12 +145,14 @@ function TopBar({ L, S, theme, D, controls, onViewAs, onRun, onSearch, onPostmor
             { value: 'live', label: <><span className="role-approved cw-dot" />Live</> },
             { value: 'replay', label: <><Icon name="replay" size={14} />Replay</> },
           ]} />
-          {onPostmortem && <Button variant="primary" icon="record" onClick={onPostmortem}>Postmortem</Button>}
+          {onPostmortem && (L.full ? <Button variant="primary" icon="record" onClick={onPostmortem}>Postmortem</Button>
+            : <Button variant="primary" icon="record" ariaLabel="Postmortem" iconOnly onClick={onPostmortem} />)}
           <a href="?view=security" aria-label="Try to break it" title="Try to break it: the red-team results and a guard sandbox"
             className={cx('cw-focus inline-flex h-9 flex-none items-center gap-2 whitespace-nowrap rounded-md text-[12.5px] font-[550] text-fg2 shadow-[inset_0_1px_0_var(--cw-hi2),0_0_0_1px_var(--cw-line2)] hover:bg-neutral-tint hover:text-fg', L.full ? 'px-3' : 'w-9 justify-center')}>
             <Icon name="shield" size={15} />{L.full && 'Try to break it'}
           </a>
-          <Button size="lg" icon="search" ariaLabel="Search" onClick={onSearch} className={L.full ? '!gap-2.5 !pl-3 !pr-2' : '!gap-2 !px-2'}>{L.full && <span className="font-medium text-fg2">Search</span>}<span className="inline-flex gap-[3px]"><Kbd>⌘</Kbd><Kbd>K</Kbd></span></Button>
+          {L.full ? <Button size="lg" icon="search" ariaLabel="Search" onClick={onSearch} className="!gap-2.5 !pl-3 !pr-2"><span className="font-medium text-fg2">Search</span><span className="inline-flex gap-[3px]"><Kbd>⌘</Kbd><Kbd>K</Kbd></span></Button>
+            : <Button icon="search" ariaLabel="Search (⌘K)" iconOnly onClick={onSearch} className="!h-9 !w-9" />}
         </div>
       ) : <Pill role="approved" pulse>Live</Pill>}
     </header>
