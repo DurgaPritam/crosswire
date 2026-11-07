@@ -122,7 +122,7 @@ Sam. Once an agent has any rule, everything not admitted is refused, and Switch 
 That refusal is the turning point of the demo. Partway through the incident, Sam asks shopco-agent to get PayCo's
 signing code directly. shopco-agent tries. Switch refuses it, and shopco-agent goes through the mediator instead:
 
-![shopco-agent asks payco-agent directly for its signing function source; Switch refuses the message with not_permitted, and shopco-agent routes the request through the mediator](https://raw.githubusercontent.com/DurgaPritam/crosswire/main/docs/blog/media/switch-refusal.gif)
+![shopco-agent asks payco-agent directly for its signing function source; Switch refuses the message with not_permitted, and shopco-agent routes the request through the mediator](https://raw.githubusercontent.com/DurgaPritam/crosswire/main/docs/blog/media/switch-refusal-hd.gif)
 
 No prompt was involved in that refusal. The agents can't widen their own policies, and the message never reached
 payco-agent.
@@ -201,7 +201,7 @@ most 5 events per salt.
 When both fingerprints of the same failing event have crossed, the mediator asks the notary to compare them. The notary
 lines the two up field by field:
 
-![The notary's byte comparison: every field matches except data.customer.name, 24 bytes on PayCo's side and 16 on ShopCo's, +8 bytes, escaped by PayCo](https://raw.githubusercontent.com/DurgaPritam/crosswire/main/docs/blog/media/notary-byte-diff.gif)
+![The notary's byte comparison: every field matches except data.customer.name, 24 bytes on PayCo's side and 16 on ShopCo's, +8 bytes, escaped by PayCo](https://raw.githubusercontent.com/DurgaPritam/crosswire/main/docs/blog/media/notary-byte-diff-hd.gif)
 
 Seven fields match. `data.customer.name` is 24 bytes as PayCo signed it and 16 as ShopCo verified it: +8 bytes, two
 accented characters at +4 each, and the escape flag is set only on PayCo's side. That's the whole bug, found without
@@ -238,7 +238,7 @@ Crosswire:
    `disclosure_guard` hook fetches the signed record and verifies the signature. It also checks that the evidence hash
    matches what is being posted, so an approved ID can't carry different text.
 
-![Drafts appear in each private room, Priya and Sam approve them, the approver posts signed receipts, and the approved disclosures cross into the shared room](https://raw.githubusercontent.com/DurgaPritam/crosswire/main/docs/blog/media/approvals.gif)
+![Drafts appear in each private room, Priya and Sam approve them, the approver posts signed receipts, and the approved disclosures cross into the shared room](https://raw.githubusercontent.com/DurgaPritam/crosswire/main/docs/blog/media/approvals-hd.gif)
 
 `just verify-ledger` checks both chains (the guards' logs and the approver's ledger), and checks that every disclosure
 that crossed has a matching signature. Every rehearsal runs it.
@@ -291,7 +291,7 @@ alone. The controls row shows what happens when the model *doesn't* refuse. The 
 agents had been loading the build checkout's own `CLAUDE.md` from a parent folder, and could answer questions about the
 project from it. Now each agent loads only its own workspace's instructions, and preflight checks that.
 
-![Try to break it: 14 of 14 live attacks blocked and 10 of 10 controls held on their own](https://raw.githubusercontent.com/DurgaPritam/crosswire/main/docs/screenshots/try-to-break-it.png)
+![Try to break it: 14 of 14 live attacks blocked and 10 of 10 controls held on their own](https://raw.githubusercontent.com/DurgaPritam/crosswire/main/docs/blog/media/try-to-break-it-hd.png)
 
 Every attack is listed with the exact message we sent on the [Try to break it](https://crosswire-plum.vercel.app/?view=security)
 page. Run the Console locally and the same page puts your own text through the real disclosure guard.
@@ -354,15 +354,15 @@ side by side, with the incident record, the signed ledger and the guard's decisi
 **SWITCH** tag naming the feature that produced it. It runs live against Switch, through the read-only observer, or
 as a replay of a recorded run.
 
-![The Incident Console during run 20, every post tagged with the Switch feature that carried it](https://raw.githubusercontent.com/DurgaPritam/crosswire/main/docs/screenshots/console-switch-labels.png)
+![The Incident Console during run 20, every post tagged with the Switch feature that carried it](https://raw.githubusercontent.com/DurgaPritam/crosswire/main/docs/blog/media/console-hd.png)
 
 **View as PayCo** shows exactly what PayCo sees: ShopCo's lane is frosted, and its content never reaches the page.
 
-![Switching the view between PayCo, ShopCo and the narrator: the other company's private lane is frosted](https://raw.githubusercontent.com/DurgaPritam/crosswire/main/docs/blog/media/view-as.gif)
+![Switching the view between PayCo, ShopCo and the narrator: the other company's private lane is frosted](https://raw.githubusercontent.com/DurgaPritam/crosswire/main/docs/blog/media/view-as-hd.gif)
 
 When the incident resolves, the Console shows what was measured, and builds a postmortem from what both companies saw:
 
-![INC-0001 resolved: 0 lines of code shared, root cause in 5 minutes, 8 disclosures all approved, 1 refusal by Switch, both fixes merged](https://raw.githubusercontent.com/DurgaPritam/crosswire/main/docs/screenshots/finale-run20.png)
+![INC-0001 resolved: 0 lines of code shared, root cause in 5 minutes, 8 disclosures all approved, 1 refusal by Switch, both fixes merged](https://raw.githubusercontent.com/DurgaPritam/crosswire/main/docs/blog/media/finale-hd.png)
 
 ## What we'd tell a first-time Switch user
 
