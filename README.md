@@ -1,6 +1,8 @@
 <p align="center"><img src="docs/design/banners/readme-banner.png" alt="Crosswire" width="640"></p>
 
-<h3 align="center">Two companies' AI agents debug a cross-company outage together,<br>without either side seeing the other's code or customer data.</h3>
+<p align="center"><b>Debug integrations across company lines without sharing code.</b><br>
+Two companies' AI agents find a cross-company bug together in a shared <a href="https://github.com/sandbox-quantum/switch">Switch</a> room.<br>
+Neither side sees the other's code or customer data, and a person approves everything that leaves a company.</p>
 
 <p align="center">
   <a href="https://github.com/DurgaPritam/crosswire/actions/workflows/ci.yml"><img src="https://github.com/DurgaPritam/crosswire/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a>
@@ -11,7 +13,7 @@
 
 <p align="center">
   <b><a href="VIDEO_URL">▶ 3-minute demo video</a></b> ·
-  <b><a href="https://crosswire-plum.vercel.app/">Watch a real incident replay in your browser</a></b> ·
+  <a href="https://crosswire-plum.vercel.app/">Replay the incident in a minute</a> ·
   <a href="#how-crosswire-uses-switch">How we use Switch</a> ·
   <a href="https://crosswire-plum.vercel.app/?view=security">Try to break it</a> ·
   <a href="#run-it">Run it yourself</a>
